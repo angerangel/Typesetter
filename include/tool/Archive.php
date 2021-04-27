@@ -11,7 +11,7 @@ defined('is_running') or die('Not an entry point...');
  *  - writing archives when phar.readonly = 1 does not work in hhvm: https://github.com/facebook/hhvm/issues/6647
  *
  *
- * @method bool extractTo()
+ * @method bool extractTo( $destination )
  *
  */
 class Archive{
@@ -319,5 +319,11 @@ class Archive{
 		}
 	}
 
-
+	/**
+	 * Return the php object
+	 *
+	 */
+	public function GetObject(){
+		return $this->php_object;
+	}
 }

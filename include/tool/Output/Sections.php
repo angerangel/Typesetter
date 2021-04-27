@@ -8,7 +8,7 @@ namespace gp\tool\Output{
 
 		static $title	= '';
 		static $label	= '';
-		static $meta	= array();
+		static $meta	= [];
 
 
 		/**
@@ -19,9 +19,8 @@ namespace gp\tool\Output{
 		 * @return string
 		 *
 		 */
-		static function Render($sections,$title,$meta = array()){
-			self::SetVars($title,$meta);
-
+		public static function Render($sections, $title, $meta=[]){
+			self::SetVars($title, $meta);
 
 			$content			= '';
 			$section_num		= 0;
@@ -35,7 +34,8 @@ namespace gp\tool\Output{
 			return $content;
 		}
 
-		private static function GetSection($sections, &$section_num ){
+
+		public static function GetSection($sections, &$section_num){
 
 			$content			= '';
 			$curr_section_num	= $section_num;
@@ -45,42 +45,52 @@ namespace gp\tool\Output{
 			//make sure section_data is an array
 			$type				= gettype($section_data);
 			if( $type !== 'array' ){
-				trigger_error('$section_data is '.$type.'. Array expected');
+				trigger_error('$section_data is ' . $type . '. Array expected');
 				return;
 			}
-			$section_data		+= array('attributes' => array() );
+			$section_data		+= ['attributes' => []];
 
 			if( $section_data['type'] == 'wrapper_section' ){
 				if( isset($section_data['contains_sections']) ){
 					for( $cc=0; $cc < $section_data['contains_sections']; $cc++ ){
-						$content			.= self::GetSection($sections, $section_num);
+						$content	.= self::GetSection($sections, $section_num);
 					}
 				}
 			}else{
-				$content				.= self::SectionToContent($section_data,$curr_section_num);
+				$content			.= self::SectionToContent($section_data, $curr_section_num);
 			}
 
 			$is_hidden = 		isset($section_data['gp_hidden']) && $section_data['gp_hidden'] == 'true';
-			$is_hidden = 		\gp\tool\Plugins::Filter('SectionIsHidden', array($is_hidden, $section_data, $curr_section_num));
+			$is_hidden = 		\gp\tool\Plugins::Filter(
+				'SectionIsHidden',
+				[$is_hidden, $section_data, $curr_section_num]
+			);
 
 			if( $is_hidden ){
 				return ''; // this of course could be done a lot smarter
 			}
 
 			if( !isset($section_data['nodeName']) ){
-				$content 			= '<div'.self::SectionAttributes($section_data['attributes'],$section_data['type']).'>'
-									. $content
-									. '<div class="gpclear"></div></div>';
+				$content		= '<div' .
+									self::SectionAttributes($section_data['attributes'], $section_data['type']) .
+									'>' .
+									$content . 
+									'<div class="gpclear"></div></div>';
 			}else{
 
 				if( empty($content) ){
-					$content 			= '<'.$section_data['nodeName'].self::SectionAttributes($section_data['attributes'],$section_data['type']).' />';
+					$content 	= '<' . 
+									$section_data['nodeName'] .
+									self::SectionAttributes($section_data['attributes'], $section_data['type']) .
+									' />';
 				}else{
-					$content 			= '<'.$section_data['nodeName'].self::SectionAttributes($section_data['attributes'],$section_data['type']).'>'
-										. $content
-										. self::EndTag($section_data['nodeName']);
+					$content	= '<' .
+									$section_data['nodeName'] .
+									self::SectionAttributes($section_data['attributes'], $section_data['type']) .
+									'>' .
+									$content .
+									self::EndTag($section_data['nodeName']);
 				}
-
 			}
 
 			return $content;
@@ -91,13 +101,16 @@ namespace gp\tool\Output{
 		 * Output an end tag if appropriate
 		 *
 		 */
-		static function EndTag($node_name){
+		public static function EndTag($node_name){
 
-			$empty_nodes = array('link','track','param','area','command','col','base','meta','hr','source','img','keygen','br','wbr','input');
-			if( in_array($node_name,$empty_nodes) ){
+			$empty_nodes = [
+				'link', 'track', 'param', 'area', 'command', 'col', 'base',
+				'meta', 'hr', 'source', 'img', 'keygen', 'br', 'wbr', 'input',
+			];
+			if( in_array($node_name, $empty_nodes) ){
 				return;
 			}
-			return '</'.$node_name.'>';
+			return '</' . $node_name . '>';
 		}
 
 
@@ -110,9 +123,9 @@ namespace gp\tool\Output{
 		 * @return string
 		 *
 		 */
-		static function RenderSection($section,$section_num,$title,$meta = array()){
-			self::SetVars($title,$meta);
-			return self::SectionToContent($section,$section_num);
+		public static function RenderSection($section, $section_num, $title, $meta=[]){
+			self::SetVars($title, $meta);
+			return self::SectionToContent($section, $section_num);
 		}
 
 
@@ -120,29 +133,43 @@ namespace gp\tool\Output{
 		 * Return the data types available for content areas
 		 * @since 3.6
 		 */
-		static function GetTypes(){
+		public static function GetTypes(){
 			global $langmessage;
 			static $types = false;
 
 			if( !$types ){
-				$types['text']['label']				= $langmessage['editable_text'];
-				$types['image']['label']			= $langmessage['Image'];
-				$types['gallery']['label']			= $langmessage['Image Gallery'];
-				$types['include']['label']			= $langmessage['File Include'];
-				$types['wrapper_section']['label']	= $langmessage['Section Wrapper'];
+				$types['text']['label']					= $langmessage['editable_text'];
+				$types['text']['file_under']			= 'default'; // required as of Typesetter 5.2
 
-				$types = \gp\tool\Plugins::Filter('SectionTypes',array($types));
+				$types['image']['label']				= $langmessage['Image'];
+				$types['image']['file_under']			= 'default';
+
+				$types['gallery']['label']				= $langmessage['Image Gallery'];
+				$types['gallery']['file_under']			= 'default';
+
+				$types['include']['label']				= $langmessage['File Include'];
+				$types['include']['file_under']			= 'default';
+
+				$types['wrapper_section']['label']		= $langmessage['Section Wrapper'];
+				$types['wrapper_section']['file_under']	= 'default';
+
+				$types = \gp\tool\Plugins::Filter('SectionTypes', [$types]);
+
+				foreach( $types as $key => $type ){
+					if( !isset($type['file_under']) ){
+						$types[$key]['file_under'] = 'plugins';
+					}
+				}
 			}
 
 			return $types;
 		}
 
 
-
-		static function SetVars($title,$meta){
+		public static function SetVars($title, $meta){
 			self::$title = $title;
 			self::$label = \gp\tool::GetLabel($title);
-			self::$meta = array();
+			self::$meta = [];
 			if( is_array($meta) ){
 				self::$meta = $meta;
 			}
@@ -154,84 +181,81 @@ namespace gp\tool\Output{
 		 * @return string
 		 *
 		 */
-		static function SectionToContent($section_data,$section_num){
+		public static function SectionToContent($section_data, $section_num){
 
-			$section_data = \gp\tool\Plugins::Filter('SectionToContent',array($section_data,$section_num));
+			$section_data = \gp\tool\Plugins::Filter('SectionToContent', [$section_data, $section_num]);
 
-			switch($section_data['type']){
+			switch( $section_data['type'] ){
 				case 'text':
-				return self::TextContent($section_data['content']);
+					return self::TextContent($section_data['content']);
 
 				case 'include':
-				return self::IncludeContent($section_data);
+					return self::IncludeContent($section_data);
 
 				case 'gallery':
 					\gp\tool::ShowingGallery();
-				return $section_data['content'];
+					return $section_data['content'];
 			}
 			return $section_data['content'];
 		}
+
 
 		/**
 		 * Replace content variables in $content
 		 *
 		 */
-		static function TextContent(&$content){
+		public static function TextContent(&$content){
+			global $dirPrefix, $linkPrefix, $config;
 
-			self::$meta += array('modified'=>'');
+			self::$meta += ['modified' => ''];
 
 			//variables
-			$vars = array(
-				'dirPrefix'		=> $GLOBALS['dirPrefix'],
-				'linkPrefix'	=> \gp\tool::HrefEncode($GLOBALS['linkPrefix']),
+			$vars = [
+				'dirPrefix'		=> $dirPrefix,
+				'linkPrefix'	=> \gp\tool::HrefEncode($linkPrefix),
 				'fileModTime'	=> self::$meta['modified'],
 				'title'			=> self::$title,
 				'label'			=> self::$label,
 				'currentYear'	=> date('Y'),
 				'currentMonths'	=> date('m'),
 				'currentDay'	=> date('d'),
-				);
-			$vars = \gp\tool\Plugins::Filter('ReplaceContentVars', array($vars));
+				'email'			=> $config['toemail'],
+			];
 
-			$offset = 0;
-			$i = 0;
-			do{
-				$i++;
+			$vars = \gp\tool\Plugins::Filter('ReplaceContentVars', [$vars]);
 
-				$pos = strpos($content,'$',$offset);
-				if( $pos === false ){
-					break;
-				}
+			preg_match_all('#(\\\*)\$([a-zA-Z]+)#', $content, $matches, PREG_OFFSET_CAPTURE|PREG_SET_ORDER);
+			$matches = array_reverse($matches);
+			foreach($matches as $match){
 
-				//escaped?
-				if( $pos > 0 ){
-					$prev_char = $content{$pos-1};
-					if( $prev_char == '\\' ){
-						$offset = $pos+1;
-						continue;
-					}
-				}
+				$match_start	= $match[0][1];
+				$match_len		= strlen($match[0][0]);
+				$var			= $match[2][0];
 
-				$len = strspn($content,'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',$pos+1);
-				if( $len == 0 ){
-					$offset = $pos+1;
+				if( !isset($vars[$var]) ){
 					continue;
 				}
 
-				$var = substr($content,$pos+1,$len);
-				if( isset($vars[$var]) ){
-					$content = substr_replace($content,$vars[$var],$pos,$len+1);
+				// escaped ?
+				$escape_chars = strlen($match[1][0]);
+				if( $escape_chars % 2 == 1 ){
+					$escape_chars	= ($escape_chars-1)/2;
+					$replacement	= str_repeat('\\', $escape_chars) . '$' . $var;
+					$content		= substr_replace($content, $replacement, $match_start, $match_len);
+					continue;
 				}
 
-				$offset = $pos+$len;
+				$escape_chars	= ($escape_chars/2);
+				$replacement	= str_repeat('\\', $escape_chars) . $vars[$var];
+				$content		= substr_replace($content, $replacement, $match_start, $match_len);
 
-			}while(true);
+			}
 
-			/* Testing old includes system ... this breaks editing */
 			self::ReplaceContent($content);
 
 			return $content;
 		}
+
 
 		/**
 		 * Include the content of another page into the current content by replacing {{--page_name--}} with the content of page_name
@@ -239,7 +263,7 @@ namespace gp\tool\Output{
 		 * @param int $offset The current string position of the page parser
 		 *
 		 */
-		static function ReplaceContent(&$content,$offset=0){
+		public static function ReplaceContent(&$content,$offset=0){
 			global $gp_index;
 			static $includes = 0;
 
@@ -248,96 +272,93 @@ namespace gp\tool\Output{
 				return;
 			}
 
-			$pos = strpos($content,'{{',$offset);
-			if( $pos === false ){
-				return;
-			}
-			$pos2 = strpos($content,'}}',$pos);
-			if( $pos2 === false ){
+			if( !preg_match('#(<p>)?\s*{{(.*)}}\s*(</p>)?#', $content, $match, PREG_OFFSET_CAPTURE, $offset) ){
 				return;
 			}
 
-			$title = substr($content,$pos+2,$pos2-$pos-2);
-			$title = str_replace(' ','_',$title);
+			$matched_string		= $match[0][0];
+			$match_pos			= $match[0][1];
+			$next_offset		= $match_pos + 2;
+			$title				= $match[2][0];
+			$title				= str_replace(' ', '_', $title);
+
 			if( !isset($gp_index[$title]) ){
-				self::ReplaceContent($content,$pos2);
+				self::ReplaceContent($content, $next_offset);
 				return;
 			}
-
 
 			$file			= \gp\tool\Files::PageFile($title);
-			$file_sections	= \gp\tool\Files::Get($file,'file_sections');
+			$file_sections	= \gp\tool\Files::Get($file, 'file_sections');
 
 			if( !$file_sections ){
-				self::ReplaceContent($content,$pos2);
+				self::ReplaceContent($content, $next_offset);
 				return;
 			}
 
 			$includes++;
 			$replacement = '';
+
 			foreach($file_sections as $section_num => $section_data){
-				$replacement .= '<div class="gpinclude" title="'.$title.'" >'; //contentEditable="false"
-				$replacement .= self::SectionToContent($section_data,$section_num);
+				$replacement .= '<div class="gpinclude" title="' . $title . '" >'; //contentEditable="false"
+				$replacement .= self::SectionToContent($section_data, $section_num);
 				$replacement .= '</div>';
 			}
 
-			//is {{...}} wrapped by <p>..</p>?
-			$pos3 = strpos($content,'</p>',$pos2);
-			if( $pos3 > 0 ){
-				$pieceAfter = substr($content,$pos2,($pos3-$pos2));
-				if( strpos($pieceAfter,'<') == false ){
-					$replacement = "</p>\n".$replacement."\n<p>";
-				}
+			//is {{...}} wrapped by <p>..</p>? ... replace the whole matched string
+			if( !empty($match[1][0]) && !empty($match[3][0]) ){
+				$start		= $match_pos;
+				$len		= strlen($matched_string);
+
+			// only replace the {{...}}
+			}else{
+				$start		= $match[2][1]-2;
+				$len		= strlen($match[2][0]) + 4;
 			}
 
-			$content = substr_replace($content,$replacement,$pos,$pos2-$pos+2);
-			self::ReplaceContent($content,$pos);
+			$content = substr_replace($content, $replacement, $start, $len);
+
+			self::ReplaceContent($content, $match_pos);
 		}
 
 
 		/**
 		 * Include the content of a page or gadget as specified in $data
 		 * @param array $data
-		 * @param string The included content
+		 * @return string The included content
 		 */
-		static function IncludeContent($data){
+		public static function IncludeContent($data){
 			global $langmessage, $gp_index;
 
+			$data		+= ['include_type'=>'file'];
+			$type		= $data['include_type'];
+			$requested	= $data['content'];
+
 			if( isset($data['index']) ){
-				$requested = \gp\tool::IndexToTitle($data['index']);
-			}else{
-				$requested = $data['content'];
+				$requested	= \gp\tool::IndexToTitle($data['index']);
+				$type		= \gp\tool::SpecialOrAdmin($requested);
 			}
 
 			if( empty($requested) ){
-				return '<p>'.$langmessage['File Include'].'</p>';
+				return '<p class="empty_file_include">' . $langmessage['File Include'] . '</p>';
 			}
 
 			if( self::$title == $requested ){
-				if( \gp\tool::LoggedIn() ){
-					msg('Infinite loop detected: '.htmlspecialchars($requested) );
-				}
-				return;
-			}
-
-			if( isset($data['include_type']) ){
-				$type = $data['include_type'];
-			}else{
-				$type = \gp\tool::SpecialOrAdmin($requested);
+				debug('Infinite loop detected: ' . htmlspecialchars($requested));
+				return '';
 			}
 
 			switch($type){
 				case 'gadget':
-				return self::IncludeGadget($requested);
+					return self::IncludeGadget($requested);
 
 				case 'special':
-				return self::IncludeSpecial($requested);
+					return self::IncludeSpecial($requested);
 
 				case 'extra':
-				return self::IncludeExtra($requested);
+					return self::IncludeExtra($requested);
 
 				default:
-				return self::IncludePage($requested);
+					return self::IncludePage($requested);
 			}
 		}
 
@@ -347,11 +368,11 @@ namespace gp\tool\Output{
 		 * @param string $requested The name of the gadget to include
 		 *
 		 */
-		static function IncludeGadget($requested){
+		public static function IncludeGadget($requested){
 			global $config;
 
 			if( !isset($config['gadgets'][$requested]) ){
-				return '{{Gadget Not Found: '.htmlspecialchars($requested).'}}';
+				return '{{Gadget Not Found: ' . htmlspecialchars($requested) . '}}';
 			}
 
 			ob_start();
@@ -365,13 +386,13 @@ namespace gp\tool\Output{
 		 * @param string $requested The name of the special page to include
 		 *
 		 */
-		static function IncludeSpecial($requested){
+		public static function IncludeSpecial($requested){
 			global $langmessage;
 
-			$scriptinfo = \gp\special\Page::GetScriptInfo( $requested, false );
+			$scriptinfo = \gp\special\Page::GetScriptInfo($requested, false);
 
 			if( $scriptinfo === false ){
-				return '<p>'.$langmessage['File Include'].'</p>';
+				return '<p class="empty_file_include">' . $langmessage['File Include'] . '</p>';
 			}
 
 			return \gp\special\Page::ExecInfo($scriptinfo);
@@ -383,14 +404,8 @@ namespace gp\tool\Output{
 		 * @param string $requested The name of the extra content to include
 		 *
 		 */
-		static function IncludeExtra($requested){
-			if( \gp\admin\Content\Extra::AreaExists($requested) === false && \gp\admin\Content\Extra::AreaExists($requested.'.php') === false ){
-				return '{{Extra Area Not Found: '.htmlspecialchars($requested).'}}';
-			}
-
-			ob_start();
-			\gp\tool\Output::GetExtra($requested);
-			return ob_get_clean();
+		public static function IncludeExtra($requested){
+			return \gp\tool\Output\Extra::GetExtra($requested);
 		}
 
 
@@ -399,47 +414,44 @@ namespace gp\tool\Output{
 		 * @param string $requested The name of the page to include
 		 *
 		 */
-		static function IncludePage($requested){
+		public static function IncludePage($requested){
 			global $gp_index;
 
-			$requested = str_replace(' ','_',$requested);
+			$requested = str_replace(' ', '_', $requested);
 
 			if( !isset($gp_index[$requested]) ){
-				return '{{'.htmlspecialchars($requested).'}}';
+				return '{{' . htmlspecialchars($requested) . '}}';
 			}
 
 			$file			= \gp\tool\Files::PageFile($requested);
-			$file_sections	= \gp\tool\Files::Get($file,'file_sections');
+			$file_sections	= \gp\tool\Files::Get($file, 'file_sections');
 
 			if( !$file_sections ){
-				return '{{'.htmlspecialchars($requested).'}}';
+				return '{{' . htmlspecialchars($requested) . '}}';
 			}
 
-			return self::Render($file_sections,self::$title,self::$meta);
+			return self::Render($file_sections, self::$title, self::$meta);
 		}
+
 
 		/**
 		 * Convert array of html attributes into a string for output
 		 *
 		 */
-		static function SectionAttributes($attrs,$type){
+		public static function SectionAttributes($attrs, $type){
 
 			switch($type){
 				case 'image':
-					$attrs['src'] = \gp\tool::GetDir($attrs['src']);
-				break;
+					$attrs			+= ['src' => '/include/imgs/default_image.jpg'];
+					$attrs['src']	= \gp\tool::GetDir($attrs['src']);
+					break;
 			}
 
 
-			$attrs				+= array('class' => '' );
-			$attrs['class']		= trim('GPAREA filetype-'.$type.' '.$attrs['class']);
+			$attrs				+= ['class' => ''];
+			$attrs['class']		= trim('GPAREA filetype-' . $type . ' ' . $attrs['class']);
 
-			$attr_string = '';
-			foreach($attrs as $attr => $value){
-				$attr_string .= ' '.htmlspecialchars($attr).'="'.htmlspecialchars($value).'"';
-			}
-
-			return $attr_string;
+			return \gp\tool\HTML::Attributes($attrs);
 		}
 
 	}

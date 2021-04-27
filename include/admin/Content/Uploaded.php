@@ -31,17 +31,13 @@ namespace gp\admin\Content{
 		public function Finder(){
 			global $config, $dataDir;
 
-			$this->page->head .= "\n".'<link rel="stylesheet" type="text/css" media="screen" href="'.\gp\tool::GetDir('/include/thirdparty/finder/css/finder.css').'">';
-			$this->page->head .= "\n".'<link rel="stylesheet" type="text/css" media="screen" href="'.\gp\tool::GetDir('/include/thirdparty/finder/style.css').'">';
+			$this->page->head 			.= "\n".'<script data-main="'.\gp\tool::GetDir('/include/thirdparty/elFinder/main.custom.js').'"'
+											. ' src="'.\gp\tool::GetDir('/include/thirdparty/js/require.min.js').'"></script>';
+			$this->page->css_admin[]	= '/include/css/admin_finder.scss';
 
-			$this->page->head .= "\n".'<script type="text/javascript" src="'.\gp\tool::GetDir('/include/thirdparty/finder/js/finder.js').'"></script>';
-			$this->page->head .= "\n".'<script type="text/javascript" src="'.\gp\tool::GetDir('/include/thirdparty/finder/config.js').'"></script>';
-
-
-			echo '<div id="finder"></div>';
+			echo '<div id="elfinder"></div>';
 
 			\gp\tool::LoadComponents('selectable,draggable,droppable,resizable,dialog,slider,button');
-
 
 
 			//get the finder language
@@ -49,15 +45,16 @@ namespace gp\admin\Content{
 			if( $language == 'inherit' ){
 				$language = $config['language'];
 			}
-			$lang_file = '/include/thirdparty/finder/js/i18n/'.$language.'.js';
+			$lang_file = '/include/thirdparty/elFinder/js/i18n/elfinder.'.$language.'.js';
 			$lang_full = $dataDir.$lang_file;
 			if( file_exists($lang_full) ){
-				$this->page->head .= "\n".'<script type="text/javascript" src="'.\gp\tool::GetDir($lang_file).'"></script>';
+				// elFinder 2.3.2 will liad the lang file via require.js
+				// $this->page->head .= "\n".'<script type="text/javascript" src="'.\gp\tool::GetDir($lang_file).'"></script>';
 			}else{
 				$language = 'en';
 			}
 			$this->finder_opts['lang'] = $language;
-			$this->finder_opts['customData']['verified'] = \gp\tool::new_nonce('post',true);
+			$this->finder_opts['customData']['verified'] = \gp\tool\Nonce::Create('post',true);
 
 
 			$this->finder_opts['uiOptions'] = array(
@@ -140,7 +137,7 @@ namespace gp\admin\Content{
 			$this->currentDir	= $this->baseDir;
 			$this->page->label	= $langmessage['uploaded_files'];
 
-			$this->imgTypes		= array('bmp'=>1,'png'=>1,'jpg'=>1,'jpeg'=>1,'gif'=>1,'tiff'=>1,'tif'=>1,'svg'=>1,'svgz'=>1);
+			$this->imgTypes		= array('bmp'=>1,'png'=>1,'jpg'=>1,'jpeg'=>1,'gif'=>1,'tiff'=>1,'tif'=>1,'svg'=>1);
 
 			$this->SetDirectory();
 
@@ -287,7 +284,7 @@ namespace gp\admin\Content{
 				$dir = $dataDir.'/data/_uploaded'.$prev_piece;
 
 				if( !\gp\tool\Files::CheckDir($dir) ){
-					message($langmessage['OOPS']);
+					msg($langmessage['OOPS']);
 					$dir = \gp\tool::DirName($dir);
 					$dir_piece = \gp\tool::DirName($prev_piece);
 				}
@@ -359,7 +356,8 @@ namespace gp\admin\Content{
 			if( $dir_piece != '/' ){
 				$temp = \gp\tool::DirName($dir_piece);
 				$return		.= '<a href="?cmd=new_dir&dir='.rawurlencode($dir_piece).'" class="gp_gallery_folder" data-cmd="gpabox"><i class="fa fa-plus"></i> '.$langmessage['create_dir'].'</a>';
-				$return		.= '<a class="gp_gallery_folder" data-cmd="gp_gallery_folder" data-arg="'.htmlspecialchars($temp).'"><i class="fa fa-folder-o"></i> .../</a>';
+				$return		.= '<a class="gp_gallery_folder" data-cmd="gp_gallery_folder" data-arg="'.htmlspecialchars($temp).'">';
+				$return		.= '<span class="fa-stack"><i class="fa fa-folder-o fa-stack-1x"></i><i class="fa fa-caret-up fa-stack-1x"></i></span> ../</a>';
 			}
 
 			foreach($folders as $folder){
@@ -460,10 +458,9 @@ namespace gp\admin\Content{
 						$query_string,
 						array(
 							'class'=>'delete fa fa-trash gpconfirm',
-							'data-cmd'=>'gpajax',
+							'data-cmd'=>'postlink',
 							'title'=>$langmessage['delete_confirm']
-						),
-						'delete'
+						)
 					)
 					. '</span>'
 					. '</div>';
@@ -517,7 +514,6 @@ namespace gp\admin\Content{
 			}
 
 
-			$upload_moved = false;
 			$fName = $this->SanitizeName($fName);
 			$from = $_FILES['userfiles']['tmp_name'][$key];
 
@@ -528,17 +524,12 @@ namespace gp\admin\Content{
 			$fName = $this->WindowsName($fName);
 			$to = $this->FixRepeatNames($fName);
 
-			if( $upload_moved ){
-				if( !rename($from,$to) ){
-					$this->errorMessages[] = sprintf($langmessage['UPLOAD_ERROR'].' (Rename Failed from '.$to.')', $fName);
-					return false;
-				}
-			}elseif( !move_uploaded_file($from,$to) ){
+			if( !move_uploaded_file($from,$to) ){
 				$this->errorMessages[] = sprintf($langmessage['UPLOAD_ERROR'].' (Move Upload Failed)', $fName);
 				return false;
 			}
 
-			@chmod( $to, 0666 );
+			@chmod( $to, gp_chmod_file);
 
 			//for images
 			$file_type = self::GetFileType($fName);
@@ -639,13 +630,12 @@ namespace gp\admin\Content{
 		}
 
 
+
 		/**
 		 * Check the file extension agains $allowed_types
 		 *
 		 */
 		public static function AllowedExtension( &$file , $fix = true ){
-			global $upload_extensions_allow, $upload_extensions_deny;
-			static $allowed_types = false;
 
 			$file = \gp\tool\Files::NoNull($file);
 
@@ -660,41 +650,10 @@ namespace gp\admin\Content{
 			}
 
 
-			//build list of allowed extensions once
-			if( !$allowed_types ){
-
-				if( is_string($upload_extensions_deny) && strtolower($upload_extensions_deny) === 'all' ){
-					$allowed_types = array();
-				}else{
-					$allowed_types = array(
-						/** Images **/		'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'svg', 'svgz',
-						/** Media **/		'aiff', 'asf', 'avi', 'fla', 'flac', 'flv', 'm4v', 'mid', 'mov', 'mp3', 'mp4', 'mpc', 'mpeg', 'mpg', 'ogg', 'oga', 'ogv', 'opus', 'qt', 'ram', 'rm', 'rmi', 'rmvb', 'swf', 'wav', 'wma', 'webm', 'wmv',
-						/** Archives **/	'7z', 'bz', 'gz', 'gzip', 'rar', 'tar', 'tgz', 'zip',
-						/** Text/Docs **/	'css', 'csv', 'doc', 'docx', 'htm', 'html', 'js', 'json', 'less', 'md', 'ods', 'odt', 'pages', 'pdf', 'ppt', 'pptx', 'rtf', 'txt', 'scss', 'sxc', 'sxw', 'vsd', 'webmanifest', 'xls', 'xlsx', 'xml', 'xsl',
-						/** Fonts **/		'eot', 'otf', 'ttf', 'woff', 'woff2',
-					);
-
-
-				}
-
-				if( is_array($upload_extensions_allow) ){
-					$upload_extensions_allow	= array_map('trim',$upload_extensions_allow);
-					$upload_extensions_allow	= array_map('strtolower',$upload_extensions_allow);
-					$allowed_types				= array_merge($allowed_types,$upload_extensions_allow);
-				}
-				if( is_array($upload_extensions_deny) ){
-					$upload_extensions_allow	= array_map('trim',$upload_extensions_allow);
-					$upload_extensions_allow	= array_map('strtolower',$upload_extensions_allow);
-					$allowed_types				= array_diff($allowed_types,$upload_extensions_deny);
-				}
-			}
-
-			$allowed_types = \gp\tool\Plugins::Filter('AllowedTypes',array($allowed_types));
-
 
 			//make sure the extension is allowed
 			$file_type = array_pop($parts);
-			if( !in_array( strtolower($file_type), $allowed_types ) ){
+			if( !in_array( strtolower($file_type), self::AllowedExtensions() ) ){
 				return false;
 			}
 
@@ -704,6 +663,54 @@ namespace gp\admin\Content{
 				return implode('.',$parts).'.'.$file_type;
 			}
 		}
+
+
+		/**
+		 * Build a list of allowed file extensions
+		 *
+		 * @return array
+		 */
+		public static function AllowedExtensions(){
+			global $upload_extensions_allow, $upload_extensions_deny, $config;
+			static $allowed_types;
+
+			if( is_array($allowed_types) ){
+				return $allowed_types;
+			}
+
+			$allowed_types = array();
+
+			if( is_string($upload_extensions_deny) && strtolower($upload_extensions_deny) === 'all' ){
+				$allowed_types = array();
+			}else{
+				$allowed_types = array(
+					/** Images **/		'avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'webp',
+					/** Media **/		'aiff', 'asf', 'avi', 'fla', 'flac', 'flv', 'm4v', 'mid', 'mov', 'mp3', 'mp4', 'mpc', 'mpeg', 'mpg', 'ogg', 'oga', 'ogv', 'opus', 'qt', 'ram', 'rm', 'rmi', 'rmvb', 'swf', 'wav', 'wma', 'webm', 'wmv',
+					/** Archives **/	'7z', 'bz', 'gz', 'gzip', 'rar', 'tar', 'tgz', 'zip',
+					/** Text/Docs **/	'css', 'csv', 'doc', 'docx', 'htm', 'html', 'js', 'json', 'less', 'md', 'ods', 'odt', 'pages', 'pdf', 'ppt', 'pptx', 'rtf', 'txt', 'scss', 'sxc', 'sxw', 'vsd', 'webmanifest', 'xls', 'xlsx', 'xml', 'xsl',
+					/** Fonts **/		'eot', 'otf', 'ttf', 'woff', 'woff2',
+				);
+				if( !empty($config['allow_svg_upload']) ){
+					$allowed_types[] = 'svg';
+				}
+			}
+
+			if( is_array($upload_extensions_allow) ){
+				$upload_extensions_allow	= array_map('trim',$upload_extensions_allow);
+				$upload_extensions_allow	= array_map('strtolower',$upload_extensions_allow);
+				$allowed_types				= array_merge($allowed_types,$upload_extensions_allow);
+			}
+			if( is_array($upload_extensions_deny) ){
+				$upload_extensions_allow	= array_map('trim',$upload_extensions_allow);
+				$upload_extensions_allow	= array_map('strtolower',$upload_extensions_allow);
+				$allowed_types				= array_diff($allowed_types,$upload_extensions_deny);
+			}
+
+			$allowed_types = \gp\tool\Plugins::Filter('AllowedTypes',array($allowed_types));
+
+			return $allowed_types;
+		}
+
 
 
 		/**
@@ -734,8 +741,8 @@ namespace gp\admin\Content{
 				return false;
 			}
 
-			if( \gp\tool::verify_nonce('delete') === false ){
-				message($langmessage['OOPS'].' (Invalid Nonce)');
+			if( $_SERVER['REQUEST_METHOD'] != 'POST'){
+				msg($langmessage['OOPS'].' (Not POST)'); // using data-cmd="postlink" instead of gpajax
 				return;
 			}
 
@@ -743,13 +750,19 @@ namespace gp\admin\Content{
 			if( !$file ){
 				return;
 			}
-			$full_path = $this->currentDir.'/'.$file;
-			$rel_path = '/data/_uploaded'.$this->subdir.'/'.$file;
+
+			$full_path		= $this->currentDir.'/'.$file;
+			$rel_path		= '/data/_uploaded'.$this->subdir.'/'.$file;
+			$thumb_path		= \gp\tool::ThumbnailPath($full_path);
+
 
 			if( !\gp\tool\Files::RmAll($full_path) ){
-				message($langmessage['OOPS']);
+				msg($langmessage['OOPS']);
 				return;
 			}
+
+			\gp\tool\Files::RmAll($thumb_path);
+
 
 			$this->page->ajaxReplace[] = array('img_deleted','',$rel_path);
 			$this->page->ajaxReplace[] = array('img_deleted_id','',self::ImageId($rel_path));
@@ -763,7 +776,7 @@ namespace gp\admin\Content{
 			global $langmessage;
 
 			if( empty($_REQUEST['file']) ){
-				if( $warn ) message($langmessage['OOPS'].'(2)');
+				if( $warn ) msg($langmessage['OOPS'].'(2)');
 				return false;
 			}
 
@@ -773,17 +786,17 @@ namespace gp\admin\Content{
 		public function CheckFileName($file,$warn){
 			global $langmessage;
 			if( (strpos($file,'/') !== false ) || (strpos($file,'\\') !== false) ){
-				if( $warn ) message($langmessage['OOPS'].'(3)');
+				if( $warn ) msg($langmessage['OOPS'].'(3)');
 				return false;
 			}
 			$fullPath = $this->currentDir.'/'.$file;
 			if( !file_exists($fullPath) ){
-				if( $warn ) message($langmessage['OOPS'].'(4)');
+				if( $warn ) msg($langmessage['OOPS'].'(4)');
 				return false;
 			}
 
 			if( strpos($fullPath,$this->baseDir) === false ){
-				if( $warn ) message($langmessage['OOPS'].' (5)');
+				if( $warn ) msg($langmessage['OOPS'].' (5)');
 				return false;
 			}
 			return $file;
@@ -812,7 +825,7 @@ namespace gp\admin\Content{
 		 * @return bool
 		 */
 		public static function IsImg($file){
-			$img_types = array('bmp'=>1,'png'=>1,'jpg'=>1,'jpeg'=>1,'gif'=>1,'tiff'=>1,'tif'=>1,'svg'=>1, 'svgz'=>1);
+			$img_types = array('bmp'=>1,'png'=>1,'jpg'=>1,'jpeg'=>1,'gif'=>1,'tiff'=>1,'tif'=>1,'svg'=>1);
 
 			$type = self::GetFileType($file);
 
@@ -835,7 +848,7 @@ namespace gp\admin\Content{
 			$thumb_dir = $dataDir.'/data/_uploaded/image/thumbnails';
 			self::SetRealPath($result,$finder);
 
-
+           if(isset($result['removed']) or isset($result['added']))
 			switch($cmd){
 
 				case 'rename':
@@ -948,7 +961,7 @@ namespace gp\admin\Content{
 			$moved = array();
 			$new_removed = array();
 			foreach($added as $akey => $ainfo){
-				$source = $ainfo['source'];
+				$source = isset($ainfo['source']) ? $ainfo['source'] : null;
 				foreach($removed as $rkey => $rinfo){
 					if( $source == $rinfo['realpath'] ){
 						$moved[$akey] = $rinfo;
@@ -964,7 +977,7 @@ namespace gp\admin\Content{
 
 			//rename files that were moved
 			foreach($added as $akey => $ainfo){
-				$rinfo = $moved[$akey];
+				$rinfo = isset($moved[$akey]) ? $moved[$akey] : null;
 				self::RenameResized($rinfo,$ainfo);
 			}
 		}
@@ -1019,6 +1032,9 @@ namespace gp\admin\Content{
 				foreach($list as $key => $info){
 					if( isset($info['hash']) && !isset($info['realpath']) ){
 						$array[$type][$key]['realpath'] = $finder->realpath($info['hash']);
+					}
+					if( isset($array[$type][$key]['realpath']) ){
+						$array[$type][$key]['realpath'] = \gp\tool::WinPath($array[$type][$key]['realpath']);
 					}
 				}
 			}

@@ -194,7 +194,7 @@ class Page extends \gp\Page{
 
 		echo '<div id="admincontent_panel" class="toolbar cf">';
 		echo '<div id="admin_menu_wrap">';
-		\gp\tool\Output::GetMenu();
+		\gp\tool\Output::GetTopTwoMenu();
 		echo '</div>';
 
 
@@ -208,7 +208,7 @@ class Page extends \gp\Page{
 		echo '<form method="get" action="'.\gp\tool::GetUrl('special_gpsearch').'" id="panel_search" class="cf">';
 
 		echo '<span>';
-		echo '<input type="text" value="" name="q"> ';
+		echo '<input type="search" value="" name="q"> ';
 		echo '<i class="fa fa-search"></i>';
 		echo '</span>';
 
@@ -221,7 +221,7 @@ class Page extends \gp\Page{
 	 *
 	 */
 	private function RunAdminScript(){
-		global $dataDir,$langmessage;
+		global $dataDir, $langmessage;
 
 
 		if( strtolower($this->requested) == 'admin' ){
@@ -233,6 +233,8 @@ class Page extends \gp\Page{
 		//resolve request for /Admin_Theme_Content if the request is for /Admin_Theme_Conent/1234
 		$request_string		= str_replace('_','/',$this->requested);
 		$parts				= explode('/',$request_string);
+		$extra_parts		= [];
+
 
 		do{
 
@@ -243,12 +245,20 @@ class Page extends \gp\Page{
 				if( \gp\admin\Tools::HasPermission($request_string) ){
 
 					$this->OrganizeFrequentScripts($request_string);
-					\gp\tool\Output::ExecInfo($scriptinfo, array('page'=>$this) );
+
+					// get extra parts without underscores replaced with slashes
+					$len			= strlen($request_string);
+					$extra			= substr($this->requested,$len);
+					$extra_parts	= explode('/',$extra);
+					$extra_parts	= array_filter($extra_parts);
+					$extra_parts	= array_values($extra_parts);
+
+					\gp\tool\Output::ExecInfo($scriptinfo, array('page'=>$this,'path_parts'=>$extra_parts) );
 
 					return;
 				}
 
-				message($langmessage['not_permitted']);
+				msg($langmessage['not_permitted'] . ' (' . $request_string . ')');
 				$this->AdminPanel();
 				return;
 			}
@@ -258,12 +268,13 @@ class Page extends \gp\Page{
 			switch($request_string){
 				case 'Admin/Finder':
 					if( \gp\admin\Tools::HasPermission('Admin_Uploaded') ){
-						includeFile('thirdparty/finder/connector.php');
+						includeFile('thirdparty/elFinder/connector.php');
 						return;
 					}
 				break;
 
 			}
+
 			array_pop($parts);
 
 		}while( count($parts) );

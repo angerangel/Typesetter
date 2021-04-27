@@ -127,6 +127,7 @@ class Installer extends \gp\admin\Addon\Tools{
 	 * Remove an addon from the site configuration
 	 * Delete code folders if needed
 	 *
+	 * @return bool
 	 */
 	public function Uninstall( $addon ){
 		global $config, $langmessage, $gp_titles, $gp_menu, $gp_index;
@@ -136,7 +137,7 @@ class Installer extends \gp\admin\Addon\Tools{
 		$addon_config = \gp\tool\Plugins::GetAddonConfig($addon);
 		if( !$addon_config ){
 			$this->message($langmessage['OOPS'].' (Already uninstalled)');
-			return;
+			return false;
 		}
 
 		unset($config['addons'][$addon]);
@@ -447,7 +448,7 @@ class Installer extends \gp\admin\Addon\Tools{
 
 		if( !$this->ini_contents ){
 			$error = $langmessage['Ini_Error'].' '.$langmessage['Ini_Submit_Bug'];
-			$error = preg_replace('#href="[^"]+"#','href="'.CMS_DOMAIN.'/Docs/Addon.ini"',$error);
+			$error = preg_replace('#href="[^"]+"#','href="' . \CMS_DOMAIN . '/Docs/Addon.ini"',$error);
 			return false;
 		}
 
@@ -464,7 +465,7 @@ class Installer extends \gp\admin\Addon\Tools{
 		}
 
 		// Check Versions
-		if( !empty($this->ini_contents['min_gpeasy_version']) && version_compare($this->ini_contents['min_gpeasy_version'], gpversion,'>') ){
+		if( !empty($this->ini_contents['min_gpeasy_version']) && version_compare($this->ini_contents['min_gpeasy_version'], \gpversion,'>') ){
 			$error = sprintf($langmessage['min_version'],$this->ini_contents['min_gpeasy_version']).' '.$langmessage['min_version_upgrade'];
 			return false;
 		}
@@ -481,9 +482,8 @@ class Installer extends \gp\admin\Addon\Tools{
 	 *
 	 */
 	public function HasHooks(){
-
 		foreach($this->ini_contents as $key => $value){
-			if( is_array($value) ){
+			if( is_array($value) && $key != 'FrontEndFramework' ){
 				$this->has_hooks = true;
 				return;
 			}
@@ -574,7 +574,6 @@ class Installer extends \gp\admin\Addon\Tools{
 			return true;
 		}
 
-
 		if( $this->has_hooks ){
 			$this->new_layout['addon_key'] = $this->config_key;
 		}
@@ -587,7 +586,9 @@ class Installer extends \gp\admin\Addon\Tools{
 		if( isset($this->ini_contents['Addon_Name']) ){
 			$this->new_layout['name'] = $this->ini_contents['Addon_Name'];
 		}
-
+		if( isset($this->ini_contents['FrontEndFramework']) && is_array($this->ini_contents['FrontEndFramework']) ){
+			$this->new_layout['framework'] = $this->ini_contents['FrontEndFramework'];
+		}
 
 		$temp					= $this->TempFile();
 		$layout_id				= basename($temp);
@@ -596,7 +597,6 @@ class Installer extends \gp\admin\Addon\Tools{
 		if( $this->default_layout ){
 			$config['gpLayout'] = $layout_id;
 		}
-
 
 		return true;
 	}
@@ -712,7 +712,10 @@ class Installer extends \gp\admin\Addon\Tools{
 	 *
 	 */
 	public function CheckFile(){
-		$check_file = $this->source.'/Install_Check.php';
+
+		// debug('Installer obj = ' . pre(get_object_vars($this))); // TODO remove
+
+		$check_file = $this->source . '/Install_Check.php';
 		if( !file_exists($check_file) ){
 			return true;
 		}
@@ -763,7 +766,7 @@ class Installer extends \gp\admin\Addon\Tools{
 	 * Recursive copy folder
 	 *
 	 */
-	public function CopyAddonDir($fromDir,$toDir){
+	public static function CopyAddonDir($fromDir,$toDir){
 
 		if( !\gp\tool\Files::CheckDir($toDir) ){
 			return 'Copy failed: '.$fromDir.' to '.$toDir;
@@ -829,7 +832,7 @@ class Installer extends \gp\admin\Addon\Tools{
 
 	/**
 	 * Get a stored order/purchase id
-	 * @param int addon id
+	 * @param int $id addon id
 	 *
 	 */
 	public function GetOrder($id){
@@ -1007,9 +1010,7 @@ class Installer extends \gp\admin\Addon\Tools{
 
 
 		//prepare a list with all titles converted to lower case
-		$lower_titles = array_keys($gp_index);
-		$lower_titles = array_combine($lower_titles, $lower_titles);
-		$lower_titles = array_change_key_case($lower_titles, CASE_LOWER);
+		$lower_titles = array_change_key_case($gp_index, CASE_LOWER);
 
 
 		//add new links ... similar to AddToConfig()
@@ -1063,30 +1064,34 @@ class Installer extends \gp\admin\Addon\Tools{
 				continue;
 			}
 
-			if( strpos($hook,'Gadget:') === 0
-				|| strpos($hook,'Admin_Link:') === 0
-				|| strpos($hook,'Special_Link:') === 0
+			if( strpos($hook, 'Gadget:') === 0
+				|| strpos($hook, 'Admin_Link:') === 0
+				|| strpos($hook, 'Special_Link:') === 0
+				|| strpos($hook, 'FrontEndFramework') === 0
 				){
 					continue;
 			}
 
-			if( $this->AddHook($hook,$hook_args) ){
+			if( $this->AddHook($hook, $hook_args) ){
 				$installed[$hook] = $hook;
 			}
 		}
 
-		$this->CleanHooks($this->config_key,$installed);
+		$this->CleanHooks($this->config_key, $installed);
 	}
 
-	public function AddHook($hook,$hook_args){
+
+
+	public function AddHook($hook, $hook_args){
 		global $config;
 
 		$add = array();
-		$this->UpdateLinkInfo($add,$hook_args);
+		$this->UpdateLinkInfo($add, $hook_args);
 		$config['hooks'][$hook][$this->config_key] = $add;
 
 		return true;
 	}
+
 
 
 	//extract the configuration type (extractArg) from $Install

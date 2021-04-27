@@ -17,7 +17,7 @@ $gp.editors			= [];		// storage for editing objects
  */
 $gp.Coords = function(area){
 	if( area.hasClass('inner_size') ){
-		area = area.children(':first');
+		area = area.children().first();
 	}
 	var loc	= area.offset();
 	loc.w	= area.outerWidth();
@@ -306,11 +306,11 @@ $gp.links.remote = function(evt){
 	}
 
 	//40px margin + 17px*2 border + 20px padding + 10 (extra padding) = approx 130
-	var height = $gp.$win.height() - 130;
+	// var height = $gp.$win.height() - 130;
 
 	var opts = {context:'iframe',width:780};
 
-	var iframe = '<iframe src="'+src+'" style="height:'+height+'px;" frameborder="0" />';
+	var iframe = '<iframe src="'+src+'" frameborder="0" />';
 	$gp.AdminBoxC(iframe,opts);
 };
 
@@ -344,43 +344,53 @@ $gp.LoadStyle = function(file, already_prefixed){
  *		- this box resizes without javascript calls (height)
  *		- less animation
  */
-$gp.AdminBoxC = function(data,options){
+$gp.AdminBoxC = function(data, options){
 	$gp.CloseAdminBox();
 	if( data === '' ){
 		return false;
 	}
 
 	if( typeof(options) == 'string' ){
-		options = {context:options}
+		options = {context:options};
 	}else if( typeof(options) == 'undefined' ){
 		options = {};
 	}
 
-	options = $.extend({context:'',width:640}, options);
+	options = $.extend({
+			context : '',
+			width : 680,
+			zIndex: 11000
+		},
+		options);
 
 	/*
 	var win_width = $gp.$win.width();
 	var box_width = Math.max(660, Math.round(win_width*0.70));
 	*/
 	var box_width = options.width;
-	var left = Math.round( ($gp.$win.width() - box_width - 40)/2);
-	var height = Math.max( $gp.$doc.height(), $('body').outerHeight(true) );
 
 	$gp.div('gp_admin_box1')
-		.css({'zIndex':11000,'min-height':height})
+		.css({
+			'zIndex' : options.zIndex
+		})
 		.stop(true,true)
 		.fadeTo(0,0) //fade in from transparent
-		.fadeTo(200,0.2);
+		.fadeTo((options.replaceBox ? 0 : 200), 0.2);
 
 	$gp.div('gp_admin_box')
-				.css({'zIndex':'11001','left':left,'top': $gp.$win.scrollTop() })
-				.stop(true,true)
-				.fadeIn(400)
-				.html('<a class="gp_admin_box_close" data-cmd="admin_box_close"></a><div id="gp_admin_boxc" class="'+(options.context||'')+'" style="width:'+box_width+'px"></div>')
-				.find('#gp_admin_boxc')
-				.html(data)
-				.find('input:visible:first')
-				.focus();
+		.css({
+			'zIndex' : options.zIndex,
+		})
+		.stop(true,true)
+		.fadeIn((options.replaceBox ? 0 : 400))
+		.html('<a class="gp_admin_box_close" data-cmd="admin_box_close"></a>'
+			+ '<div id="gp_admin_boxc" class="' + (options.context || '') + '" '
+			+ 'style="width:' + box_width + 'px">'
+			+ '</div>')
+		.find('#gp_admin_boxc')
+		.html(data)
+		.find('input:visible').first()
+		.trigger('focus');
 
 	$('.messages').detach();
 
@@ -423,7 +433,7 @@ $gp.CloseAdminBox = function(evt){
 		$.fn.colorbox.close();
 	}
 };
-$gp.links.admin_box_close = gpinputs.admin_box_close = $gp.CloseAdminBox;
+$gp.links.admin_box_close = $gp.inputs.admin_box_close = $gp.CloseAdminBox;
 
 
 /**
@@ -434,13 +444,13 @@ $gp.SaveGPUI = function(){
 	if( !isadmin ){
 		return;
 	}
-	var data = 'do=savegpui';
+	var data = 'cmd=SaveGPUI';
 	$.each(gpui,function(i,value){
 		data += '&gpui_'+i+'='+value;
 	});
 
-	$gp.postC( window.location.href, data);
-	//for debugging, see gpsession::SaveGPUI()
+	var url = gpBLink+'/Admin/Preferences';
+	$gp.postC( url, data);
 };
 
 
@@ -463,7 +473,7 @@ $gp.links.dd_menu = function(evt){
 	//scroll to show selected
 	var $selected = $list.find('.selected');
 	if( $selected.length ){
-		var $ul = $list.find('ul:first');
+		var $ul = $list.find('ul').first();
 		var pos = $list.find('.selected').prev().prev().prev().position();
 		if( pos ){
 			$ul.scrollTop( pos.top + $ul.scrollTop() );
@@ -586,7 +596,7 @@ $gp.links.toggle_panel = function(evt){
 		c = 1;
 	}
 	if( !panel.hasClass('toggledmin') ){
-		panel.unbind('mouseenter touchstart').bind('mouseenter touchstart',function(event){panel.unbind(event).removeClass('toggledmin');});
+		panel.off('mouseenter touchstart').on('mouseenter touchstart',function(event){panel.off(event).removeClass('toggledmin');});
 	}
 	panel.attr('class','keep_viewable '+classes);
 
@@ -671,7 +681,11 @@ $gp.links.gpabox = function(evt){
 	evt.preventDefault();
 	$gp.loading();
 	var href = $gp.jPrep(this.href)+'&gpx_content=gpabox';
-	$.getJSON(href,$gp.Response);
+	var this_context = this;
+	$.getJSON(href,function(data,textStatus,jqXHR){
+		$gp.Response.call(this_context,data,textStatus,jqXHR);
+	});
+
 };
 
 
@@ -681,9 +695,10 @@ $gp.links.gpabox = function(evt){
  */
 $gp.links.add_table_row = function(evt){
 	var $tr = $(this).closest('tr');
-	var $new_row = $tr.closest('tbody').find('tr:first').clone();
+	var $new_row = $tr.closest('tbody').find('tr').first().clone();
 	$new_row.find('.class_only').remove();
 	$new_row.find('input').val('').attr('value','');
+	$new_row.find('textarea').val('').text('');
 	$tr.before($new_row);
 }
 
@@ -698,6 +713,48 @@ $gp.links.rm_table_row = function(evt){
 	}
 	$this.closest('tr').remove();
 }
+
+
+/**
+ * POST a link (without ajax)
+ *
+ */
+$gp.links.post = function(evt){
+	evt.preventDefault();
+
+	var query			= strip_to(this.search,'?');
+	var params			= ParseQuery(query);
+	params.verified		= this.dataset.nonce;
+
+	var form			= document.createElement('form');
+
+    form.method			= 'POST';
+    form.action			= this.pathname;
+
+
+	for( const [name, value] of Object.entries(params) ){
+		var element		= document.createElement('input');
+		element.type	= 'hidden';
+		element.name	= name;
+		element.value	= value;
+	    form.appendChild(element);
+	}
+
+    document.body.appendChild(form);
+
+    form.submit();
+}
+
+function ParseQuery(queryString) {
+    var query = {};
+    var pairs = (queryString[0] === '?' ? queryString.substr(1) : queryString).split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        var pair = pairs[i].split('=');
+        query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1] || '');
+    }
+    return query;
+}
+
 
 /**
  * Post a gpabox request
@@ -761,6 +818,19 @@ $gp.response.location = function(obj){
 	window.setTimeout(function(){
 		window.location = obj.SELECTOR;
 	},obj.CONTENT);
+	window.setInterval(function(){
+		$('#redir-countdown').text($('#redir-countdown').text() - 1);
+	}, 1000);
+};
+
+
+/**
+ * toggle the isPrivate class for the <html> element
+ * obj.SELECTOR must evaluate as true or false
+ *
+ */
+$gp.response.toggle_vis_class = function(obj){
+	$('html').toggleClass('isPrivate', !!obj.SELECTOR);
 };
 
 
@@ -852,7 +922,7 @@ $(function(){
 		return;
 	}
 
-	$('body').addClass('gpAdmin');
+	$('body, html').addClass('gpAdmin');
 
 	$gp.IndicateDraft();
 
@@ -879,7 +949,7 @@ $(function(){
 		var timeout = false, overlay, lnk_span=false, edit_area, highlight_box, fixed_pos = false;
 
 		overlay = $gp.div('gp_edit_overlay');
-		overlay.click(function(evt){
+		overlay.on('click', function(evt){
 
 			//if a link is clicked, prevent the overlay from being shown right away
 			var target = $(evt.target);
@@ -940,7 +1010,7 @@ $(function(){
 			rmNoOverlay(edit_area);
 		});
 
-		$gp.$win.scroll(function(){
+		$gp.$win.on('scroll', function(){
 			SpanPosition();
 		});
 
@@ -1063,7 +1133,7 @@ $(function(){
 			lnk_span
 				.css({'left':'auto','top':0,'right':0,'position':'absolute'})
 				.removeClass('gp_hover')
-				.unbind('mouseenter touchstart')
+				.off('mouseenter touchstart')
 				.one('mouseenter touchstart',function(){
 					if( edit_area.hasClass('gp_no_overlay') ){
 						return;
@@ -1141,15 +1211,17 @@ $(function(){
 
 	function UIEffects(){
 
-		SimpleDrag('#simplepanel .toolbar, #simplepanel .toolbar a', '#simplepanel', 'fixed', function(newpos){
-			gpui.tx = newpos.left;
-			gpui.ty = newpos.top;
-			$gp.SaveGPUI();
-		},true);
+		if( !$('html').hasClass('admin_body') ){
+			SimpleDrag('#simplepanel .toolbar, #simplepanel .toolbar a', '#simplepanel', 'fixed', function(newpos){
+				gpui.tx = newpos.left;
+				gpui.ty = newpos.top;
+				$gp.SaveGPUI();
+			},true);
+		}
 
 
 		//keep expanding areas within the viewable window
-		$('.in_window').parent().bind('mouseenter touchstart',function(){
+		$('.in_window').parent().on('mouseenter touchstart',function(){
 			var $this = $(this);
 			var panel = $this.children('.in_window').css({'right':'auto','left':'100%','top':0});
 			window.setTimeout(function(){
@@ -1170,7 +1242,6 @@ $(function(){
 			},1);
 		});
 
-
 	}
 
 
@@ -1190,6 +1261,7 @@ $(function(){
 		});
 	});
 
+
 	/**
 	 * Configuration -> Settings
 	 * Disable minifyjs when combinejs is unchecked
@@ -1204,7 +1276,234 @@ $(function(){
 	CheckCombineJs();
 
 
-});
+	/**
+	 * Modifier key names based on UI language and OS
+	 *
+	 */
+	$gp.mod_keys = /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform) ?
+		{
+			// Apple
+			ctrlKey:	'˄ control',
+			shiftKey:	'⇑ shift',
+			altKey:		'⌥ option',
+			metaKey:	'⌘ command'
+		} :
+		{
+			// others
+			ctrlKey:	gplang.ctrlKey,
+			shiftKey:	'⇑ ' + gplang.shiftKey,
+			altKey:		gplang.altKey,
+			metaKey:	'Meta'
+		};
+
+
+	/**
+	 * Get visual representation of modifier keys in a <span>
+	 * @param array of keys, possible values: ctrlKey, shiftKey, altKey, metaKey
+	 * @return html
+	 *
+	 */
+	$gp.GetModkeys = function(mod_keys){
+		if( !mod_keys.length ){
+			return '';
+		}
+		var html = '';
+		$.each(mod_keys, function(i, k){
+			html += '<kbd class="keyboard-key">' + $gp.mod_keys[k] + '</kbd> + ';
+		});
+		return '<span class="show_modkeys">' + html + '</span>';
+	};
+
+
+	/**
+	 * Insert modifier keys pepresentation to an element
+	 * @param stringa valid jQuery selector
+	 * @param string 'before' or 'after''
+	 * @param array of keys, modifier keys and regular key, e.g. ['ctrlKey','H'], optional
+	 *
+	 */
+	$gp.InsertModkeys = function(selector, where, mod_keys){
+		$(selector).siblings('.show_modkeys').remove();
+		if( typeof(mod_keys) == 'undefined' ){
+			// get from hideAdminUIcfg
+			var mod_keys = hideAdminUIcfg.hotkey_modkeys;
+		}
+
+		var modkeys_html = $gp.GetModkeys(mod_keys);
+		if( where == 'before' ){
+			$(modkeys_html).insertBefore(selector);
+		}else{
+			$(modkeys_html).insertAfter(selector);
+		}
+	};
+
+
+	/**
+	 * Get hotkey hint
+	 * @param array of keys, modifier keys and regular key, e.g. ['ctrlKey','H']
+	 * @return string e.g. for title attr
+	 *
+	 */
+	$gp.GetHotkeyHint = function(keys){
+		var hint = '';
+		if( typeof(keys) == 'undefinded' || !keys.length ){
+			return '';
+		}
+		$.each(keys, function(i, k){
+			switch(k){
+				case 'ctrlKey':
+				case 'shiftKey':
+				case 'altKey':
+				case 'metaKey':
+					hint += '[' + $gp.mod_keys[k] + ']+';
+					break;
+				default:
+					hint += '[' + k + ']';
+					break;
+			}
+		});
+		return hint;
+	};
+
+
+	/*
+	 * Hide Admin UI
+	 * Configuration -> Settings
+	 * input capture hotkey combination
+	 */
+
+	$('#admin_ui_hotkey').on('focus', function(){
+			$(this).select();
+		}).on('keydown', function(evt){
+			var key_stroke	= $.inArray(evt.key, ['Control', 'Shift', 'Alt', 'AltGraph', 'Meta']) != -1 ? '' : evt.key.toUpperCase();
+			var key_which	= $.inArray(evt.key, ['Control', 'Shift', 'Alt', 'AltGraph', 'Meta']) != -1 ? '' : evt.which;
+
+			var mod_keys = [];
+			evt.ctrlKey		&& mod_keys.push('ctrlKey');
+			evt.shiftKey	&& mod_keys.push('shiftKey');
+			evt.altKey		&& mod_keys.push('altKey');
+			evt.metaKey		&& mod_keys.push('metaKey');
+
+			// show the modifier keys
+			$gp.InsertModkeys('#admin_ui_hotkey', 'before', mod_keys);
+
+			var key_code =
+				(evt.ctrlKey  ? 'ctrlKey+'	: '') +
+				(evt.shiftKey ? 'shiftKey+'	: '') +
+				(evt.altKey   ? 'altKey+'	: '') +
+				(evt.metaKey  ? 'metaKey+'	: '') +
+				key_which;
+
+			if( key_stroke == '' ||
+				key_stroke == ' ' ||
+				key_stroke == 'DEAD' ||
+				key_stroke == 'DELETE' ||
+				key_stroke == 'BACKSPACE'
+				){
+				key_stroke = '';
+				key_code = '';
+			}
+			$(this).val(key_stroke);
+			$('#admin_ui_hotkey_code').val(key_code);
+			evt.stopPropagation();
+			evt.preventDefault();
+
+		}).on('keyup', function(evt){
+			var code_val = $('#admin_ui_hotkey_code').val();
+			var has_modifier_key = /ctrlKey\+|shiftKey\+|altKey\+|metaKey\+/g.test(code_val);
+			if( code_val == '' || !has_modifier_key ){
+				$(this).val('');
+				$('#admin_ui_hotkey_code').val('');
+				$gp.InsertModkeys('#admin_ui_hotkey', 'before', []);
+			}
+		});
+
+	// make the input smaller and show the modifier keys on load
+	if( $('#admin_ui_hotkey').length ){
+		$('#admin_ui_hotkey').width(96);
+		$gp.InsertModkeys('#admin_ui_hotkey', 'before');
+	}
+
+}); /* end on DOM ready */
+
+
+
+/**
+ * Hide Admin UI
+ *
+ */
+$gp.HideAdminUI = {
+
+	init: function(){
+
+		$gp.HideAdminUI.hotkey_hint = '';
+		if( hideAdminUIcfg.hotkey != '' && hideAdminUIcfg.hotkey_code != '' ){
+			var hotkey_arr = hideAdminUIcfg.hotkey_modkeys;
+			hotkey_arr.push(hideAdminUIcfg.hotkey);
+			$gp.HideAdminUI.hotkey_hint = ' ' + $gp.GetHotkeyHint(hotkey_arr);
+		}
+
+		$('<div class="show-admin-ui" '
+			+ 'title="'	+ gplang.ShowAdminUI + $gp.HideAdminUI.hotkey_hint + '"'
+			+ '><i class="fa fa-user-circle"></i></div>')
+		.on('click', function(){
+			$gp.HideAdminUI.toggle(false);
+		}).appendTo('body');
+
+		$('.admin-link-hide-ui')
+			.attr('title', $('.admin-link-hide-ui').attr('title') + $gp.HideAdminUI.hotkey_hint);
+
+		if( hideAdminUIcfg.autohide_below ){
+			$gp.HideAdminUI.ww = $gp.$win.width();
+			$gp.$win.on('load', function(evt){
+				var ww = $gp.$win.width();
+				if( ww < hideAdminUIcfg.autohide_below ){
+					$gp.HideAdminUI.toggle(true);
+					$gp.HideAdminUI.ww = ww;
+				}
+			}).on('resize', function(evt){
+				var ww = $gp.$win.width();
+				var threshold = hideAdminUIcfg.autohide_below;
+				if( ww < threshold && $gp.HideAdminUI.ww >= threshold ){
+					$gp.HideAdminUI.toggle(true);
+					$gp.HideAdminUI.ww = ww;
+				}else if( ww >= threshold && $gp.HideAdminUI.ww < threshold ){
+					$gp.HideAdminUI.toggle(false);
+					$gp.HideAdminUI.ww = ww;
+				}
+			});
+		}
+
+		if( hideAdminUIcfg.hotkey_which != '' ){
+			$gp.$doc.on('keydown.hideAdminUI', function(evt){
+				var modkeys_pressed = true;
+				$.each(hideAdminUIcfg.hotkey_modkeys, function(i, key){
+					if( evt[key] === false ){
+						modkeys_pressed = false;
+						return false;
+					}
+				});
+				if( modkeys_pressed && evt.which == hideAdminUIcfg.hotkey_which ){
+					evt.preventDefault();
+					$gp.HideAdminUI.toggle();
+				}
+				if( evt.which == 27 ){ /* 27 [Esc] key always exits hidden state */
+					$gp.HideAdminUI.toggle(false);
+				}
+			});
+		}
+	},
+
+	toggle: function(show_hide){
+		if( typeof(show_hide) == 'boolean' ){
+			$("html").toggleClass("override_admin_style", show_hide);
+		}else{
+			$("html").toggleClass("override_admin_style");
+		}
+	},
+
+};
+
 
 
 /**
@@ -1226,7 +1525,9 @@ function SimpleDrag(selector, drag_area, positioning, callback_done){
 	//dragging
 	$gp.$doc.off('mousedown.sdrag',selector).on('mousedown.sdrag',selector,function(e){
 
-		if( e.which != 1 ) return;
+		if( e.which != 1 ){
+			return;
+		}
 
 		var box, click_offsetx, click_offsety;
 		e.preventDefault();
@@ -1241,7 +1542,7 @@ function SimpleDrag(selector, drag_area, positioning, callback_done){
 		}
 
 
-		$gp.$doc.bind('mousemove.sdrag',function(e){
+		$gp.$doc.on('mousemove.sdrag',function(e){
 
 			//initiate the box
 			if( !box ){
@@ -1260,9 +1561,9 @@ function SimpleDrag(selector, drag_area, positioning, callback_done){
 
 
 
-		$gp.$doc.unbind('mouseup.sdrag').bind('mouseup.sdrag',function(e){
+		$gp.$doc.off('mouseup.sdrag').on('mouseup.sdrag',function(e){
 			var newposleft,newpostop,pos_obj;
-			$gp.$doc.unbind('mousemove.sdrag mouseup.sdrag');
+			$gp.$doc.off('mousemove.sdrag mouseup.sdrag');
 
 			if( !box ){
 				return false;
@@ -1354,7 +1655,7 @@ function SimpleDrag(selector, drag_area, positioning, callback_done){
 		}
 	}
 
-	$gp.$win.resize(function(){
+	$gp.$win.on('resize', function(){
 		$('.keep_viewable').each(function(){
 			KeepViewable($(this),false);
 		});
@@ -1372,7 +1673,7 @@ $gp.response.renameprep = function(){
 
 	var $form			= $('#gp_rename_form');
 	var old_title		= $('#old_title').val().toLowerCase();
-	var $new_title		= $form.find('input.new_title').bind('keyup change',ShowRedirect);
+	var $new_title		= $form.find('input.new_title').on('keyup change',ShowRedirect);
 	var space_char		= $('#gp_space_char').val();
 
 
@@ -1380,10 +1681,10 @@ $gp.response.renameprep = function(){
 		$(b).fadeTo(400,0.6);
 	});
 
-	$('input.title_label').bind('keyup change',SyncSlug).change();
+	$('input.title_label').on('keyup change', SyncSlug).trigger('change');
 
 	$gp.links.showmore = function(){
-		$('#gp_rename_table tr').show(500);
+		$('#gp_rename_table tr').css('display','table-row');
 		$(this).parent().remove();
 	};
 
@@ -1402,10 +1703,10 @@ $gp.response.renameprep = function(){
 
 		if( vis.length ){
 			if( vis.hasClass('slug_edit') ){
-				td.find('input').addClass('sync_label').prop('disabled',true).fadeTo(400,0.6);
+				td.find('input').addClass('sync_label').prop('readonly',true).fadeTo(400,0.6);
 				SyncSlug();
 			}else{
-				td.find('input').removeClass('sync_label').prop('disabled',false).fadeTo(400,1);
+				td.find('input').removeClass('sync_label').prop('readonly',false).fadeTo(400,1);
 			}
 		}
 	}
@@ -1508,6 +1809,3 @@ $gp.response.renameprep = function(){
 	}
 
 };
-
-
-

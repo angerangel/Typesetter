@@ -1,11 +1,11 @@
 
 
 $(function(){
-
-	if( typeof(IE_LT_10) != 'undefined' && IE_LT_10 ){
+	// if( typeof(IE_LT_10) != 'undefined' && IE_LT_10 ){
+	if( window.navigator.userAgent.match(/(MSIE|Trident)/) ){
 		$('#browser_warning').show();
 	}
-	$('#loginform .login_text:first input').focus();
+	$('#loginform .login_text').first().find('input').trigger('focus');
 
 
 	window.setTimeout(function(){
@@ -16,7 +16,7 @@ $(function(){
 
 	//don't send plaintext password if possible
 	//send instead md5 and sha1 encrypted strings
-	$('#login_form').submit(function(){
+	$('#login_form').on('submit', function(){
 		if( this.encrypted.checked ){
 			var pwd					= this.password.value;
 			var nonce				= this.login_nonce.value;

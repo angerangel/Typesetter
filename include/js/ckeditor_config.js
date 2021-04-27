@@ -6,17 +6,43 @@
 CKEDITOR.on( 'instanceCreated', function(e){
 	var editor = e.editor;
 
+	// disable plugin buttons
+	var hide_buttons		= ['source','searchCode','autoFormat','commentSelectedRange','uncommentSelectedRange','autoCompleteToggle']
+	editor.ui.addButton		= function(label,args){
+		if( hide_buttons.indexOf(args.command) > -1 ){
+			return;
+		}
+		return CKEDITOR.ui.prototype.addButton.call(editor.ui,label,args);
+	};
+
+
+	//fix. CKEditor refuses to show Paste dialog 
+	//github.com/ckeditor/ckeditor4/issues/469
+	CKEDITOR.on("instanceReady", function(event) {
+		event.editor.on("beforeCommandExec", function(event) {
+			// Show the paste dialog for the paste buttons and right-click paste
+			if (event.data.name == "paste") {
+				event.editor._.forcePasteDialog = true;
+			}
+			// Don't show the paste dialog for Ctrl+Shift+V
+			if (event.data.name == "pastetext" && event.data.commandData.from == "keystrokeHandler") {
+				event.cancel();
+			}
+		})
+	});	
+
+	
 	// add a row to the toolbar with plugin buttons
 	// using uiSpace for sharedSpaces
 	editor.on( 'uiSpace', function(){
 	//editor.on( 'pluginsLoaded', function(){
 
 		// this is a list of buttons standard to ckeditor
-		var standard_items = ['About', 'Bold', 'Italic', 'Underline','Scayt', 'Strike', 'Subscript', 'Superscript', 'BidiLtr', 'BidiRtl', 'Blockquote', 'Cut', 'Copy', 'Paste', 'TextColor', 'BGColor', 'Templates', 'CreateDiv', '-', 'NumberedList', 'BulletedList', 'Indent', 'Outdent', 'Find', 'Replace', 'Flash', 'Font', 'FontSize', 'Form', 'Checkbox', 'Radio', 'TextField', 'Textarea', 'Select', 'Button', 'ImageButton', 'HiddenField', 'Format', 'HorizontalRule', 'Iframe', 'Image', 'Smiley', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', 'Link', 'Unlink', 'Anchor', 'Maximize', 'NewPage', 'PageBreak', 'PasteText', 'PasteFromWord', 'RemoveFormat', 'Save', 'SelectAll', 'ShowBlocks', 'Sourcedialog', 'SpecialChar', 'Styles', 'Table', 'Undo', 'Redo' ];
+		var standard_items = ['About', 'Bold', 'Italic', 'Underline', 'Scayt', 'Strike', 'Subscript', 'Superscript', 'BidiLtr', 'BidiRtl', 'Blockquote', 'Cut', 'Copy', 'Paste', 'TextColor', 'BGColor', 'Templates', 'CreateDiv', '-', 'NumberedList', 'BulletedList', 'Indent', 'Outdent', 'Find', 'Replace', 'Flash', 'Font', 'FontSize', 'Form', 'Checkbox', 'Radio', 'TextField', 'Textarea', 'Select', 'Button', 'ImageButton', 'HiddenField', 'Format', 'HorizontalRule', 'Iframe', 'Image', 'Smiley', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', 'Link', 'Unlink', 'Anchor', 'Maximize', 'NewPage', 'PageBreak', 'PasteText', 'PasteFromWord', 'RemoveFormat', 'Save', 'SelectAll', 'ShowBlocks', 'Sourcedialog', 'SpecialChar', 'Styles', 'Table', 'Undo', 'Redo' ];
 
 		var plugin_buttons = [];
 		for( i in editor.ui.items ){
-			var is_in = jQuery.inArray(i, standard_items);
+			var is_in = $.inArray(i, standard_items);
 			if( is_in === -1 ){
 				plugin_buttons.push(i);
 			}
@@ -28,6 +54,11 @@ CKEDITOR.on( 'instanceCreated', function(e){
 
 		editor.config.toolbar.push( plugin_buttons );
 	});
+
+	//Fix https://github.com/Typesetter/Typesetter/issues/379
+	editor.config.codemirror = {
+		enableCodeFolding: false
+	}
 
 });
 
@@ -112,10 +143,20 @@ CKEDITOR.on( 'dialogDefinition', function( ev ){
 
 			}
 		});
+
+		dialogDefinition.height = 280;
 	}
+	
+	if ( dialogName == 'find' ) {
+		dialogDefinition.height = 200;
+	}
+
+	if( dialogName == 'image' ){
+		dialogDefinition.height = 430;
+	}
+
+	if( dialogName == 'table' ){
+		dialogDefinition.height = 370;
+	}  		
+	
 });
-
-
-
-
-

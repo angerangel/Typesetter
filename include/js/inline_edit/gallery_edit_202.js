@@ -221,7 +221,7 @@
 				if( classname.indexOf('gallery-theme-') === 0 
 					|| classname.indexOf('gallery-size-') === 0
 					|| classname.indexOf('gallery-color-') === 0 ){
-					$('#' + classname).click();
+					$('#' + classname).trigger('click');
 				}
 			});
 		};
@@ -265,8 +265,8 @@
 		//gp_editor.edit_div.get(0).innerHTML = section_object.content;
 
 		ShowEditor();
-		var orig_content			= gp_editor.getData(gp_editor.edit_div, section_object);
-		gp_editor.editorLoaded();
+		gp_editor.editorLoaded(section_object);
+		var orig_content = gp_editor.getData(gp_editor.edit_div, section_object);
 
 
 		function ShowEditor(){
@@ -428,19 +428,13 @@
 			 * Show/Hide Edit Links
 			 *
 			 */
-			$(document).delegate('#gp_current_images span',{
-				'mousemove.gp_edit':function(){
+			$(document).on('mousemove.gp_edit', '#gp_current_images span', function(){
 					var offset = $(this).offset();
 					edit_links.show().css({'left':offset.left,'top':offset.top});
 					current_image = this;
-				},
-				'mouseleave.gp_edit':function(){
+				}).on('mouseleave.gp_edit mousedown.gp_edit', '#gp_current_images span', function(){
 					edit_links.hide();
-				},
-				'mousedown.gp_edit':function(){
-					edit_links.hide();
-				}
-			});
+				});
 
 
 			/**
@@ -461,7 +455,7 @@
 
 				current_image	= GetCurrentImage(this);
 				var $li			= $(current_image);
-				var caption		= $li.find('.caption').html() || $li.find('a:first').attr('title'); //title attr for backwards compat
+				var caption		= $li.find('.caption').html() || $li.find('a').first().attr('title'); //title attr for backwards compat
 
 
 				var popup = '<div class="inline_box" id="gp_gallery_caption"><form><h3>'+gplang.cp+'</h3>'
@@ -630,7 +624,8 @@
 			var src = $img.find('img').attr('src') || '';
 			var file_name = src.substring(src.lastIndexOf('/') + 1);
 			file_name = file_name.substr(0, file_name.lastIndexOf('.'));
-			var auto_caption = file_name.substring(0, file_name.lastIndexOf('.')).split("_").join(" ");
+			var auto_caption = decodeURI(file_name);
+			auto_caption = auto_caption.substring(0, auto_caption.lastIndexOf('.')).split("_").join(" ");
 			$img.append('<span class="caption">' + auto_caption + '</span>');
 			var li = $('<li>').append($img);
 			if( holder ){

@@ -101,7 +101,7 @@ namespace gp\tool{
 				$css_h = $attributes['height'];
 			}
 
-			if( !$css_w && !$css_h ){
+			if( !$css_w || !$css_h ){
 				return false;
 			}
 
@@ -135,7 +135,7 @@ namespace gp\tool{
 
 			//compare to actual size
 			$src_img = \gp\tool\Image::getSrcImg($src_path);
-			if( !$src_img ){
+			if( $src_img === false ){
 				return false;
 			}
 
@@ -420,7 +420,7 @@ namespace gp\tool{
 
 		/**
 		 * Remove null and control characters from the string
-		 *
+		 * @return string
 		 */
 		public static function Sanitize($string){
 
@@ -563,7 +563,7 @@ namespace gp\tool{
 			echo '</textarea><br/>';
 
 
-			$page->head .= "\n".'<script type="text/javascript" src="'.\gp\tool::GetDir('/include/thirdparty/ckeditor_34/ckeditor.js').'?'.rawurlencode(gpversion).'"></script>';
+			$page->head .= "\n".'<script type="text/javascript" src="'.\gp\tool::GetDir('/include/thirdparty/ckeditor/ckeditor.js').'?'.rawurlencode(gpversion).'"></script>';
 			$page->head .= "\n".'<script type="text/javascript" src="'.\gp\tool::GetDir('/include/js/ckeditor_config.js').'?'.rawurlencode(gpversion).'"></script>';
 
 			\gp\tool::LoadComponents('autocomplete');
@@ -580,7 +580,11 @@ namespace gp\tool{
 			}
 
 			echo '$(".CKEDITAREA").each(function(){';
-			echo 'CKEDITOR.replace( this, '.$config.' );';
+			echo	'CKEDITOR.replace( this, '.$config.' );';
+			echo	'CKEDITOR.on("instanceReady", function(evt){';
+			/* echo		'console.log("triggered editor:loaded event with ", { section: evt.editor.element["$"], section_type: "other", label: evt.editor.name });'; */
+			echo		'$(document).trigger("editor:loaded", { editor: evt.editor, section: evt.editor.element["$"], section_type: "other", label: evt.editor.name });';
+			echo	'});';
 			echo '});';
 
 			echo "\n\n";
@@ -620,9 +624,9 @@ namespace gp\tool{
 			// 4) CMS defaults
 			$defaults = array(
 							//'customConfig'				=> \gp\tool::GetDir('/include/js/ckeditor_config.js'),
-							'skin'						=> 'kama',
+							'skin'						=> 'moono-lisa',
 							'browser'					=> true, //not actually a ckeditor configuration value, but we're keeping it now for reverse compat
-							'smiley_path'				=> \gp\tool::GetDir('/include/thirdparty/ckeditor_34/plugins/smiley/images/'),
+							'smiley_path'				=> \gp\tool::GetDir('/include/thirdparty/ckeditor/plugins/smiley/images/'),
 							'height'					=> 300,
 							'contentsCss'				=> \gp\tool::GetDir('/include/css/ckeditor_contents.css'),
 							'fontSize_sizes'			=> 'Smaller/smaller;Normal/;Larger/larger;8/8px;9/9px;10/10px;11/11px;12/12px;14/14px;16/16px;18/18px;20/20px;22/22px;24/24px;26/26px;28/28px;36/36px;48/48px;72/72px',
@@ -639,7 +643,7 @@ namespace gp\tool{
 																array('Sourcedialog','Templates','ShowBlocks','Undo','Redo','RemoveFormat'), //,'Maximize' does not work well
 																array('Cut','Copy','Paste','PasteText','PasteFromWord','SelectAll','Find','Replace'),
 																array('HorizontalRule','Smiley','SpecialChar','PageBreak','TextColor','BGColor'),
-																array('Link','Unlink','Anchor','Image','Flash','Table'),
+																array('Link','Unlink','Anchor','Image','Table'),
 																array('Format','Font','FontSize'),
 																array('JustifyLeft','JustifyCenter','JustifyRight','JustifyBlock','NumberedList','BulletedList','Outdent','Indent'),
 																array('Bold','Italic','Underline','Strike','Blockquote','Subscript','Superscript','About')
@@ -681,7 +685,6 @@ namespace gp\tool{
 			if( $options['browser'] ){
 				$options['filebrowserBrowseUrl'] = \gp\tool::GetUrl('Admin/Browser').'?type=all';
 				$options['filebrowserImageBrowseUrl'] = \gp\tool::GetUrl('Admin/Browser').'?dir=%2Fimage';
-				$options['filebrowserFlashBrowseUrl'] = \gp\tool::GetUrl('Admin/Browser').'?dir=%2Fflash';
 				unset($options['browser']);
 			}
 
@@ -768,127 +771,6 @@ namespace gp\tool{
 
 
 		/**
-		 * Include Editing
-		 *
-		 */
-		public static function IncludeDialog( $section ){
-			global $page, $langmessage, $config, $gp_index, $dataDir;
-
-			$page->ajaxReplace = array();
-
-			$include_type =& $section['include_type'];
-
-			$gadget_content = '';
-			$extra_content = '';
-			$file_content = '';
-			switch($include_type){
-				case 'gadget':
-					$gadget_content =& $section['content'];
-				break;
-				case 'extra':
-					$extra_content =& $section['content'];
-				break;
-				default:
-					$file_content =& $section['content'];
-				break;
-			}
-
-			ob_start();
-
-			echo '<form id="gp_include_form">';
-
-			echo '<div class="gp_scrolllist"><div>';
-			echo '<input type="text" value="" class="gpsearch" placeholder="'.$langmessage['Search'].'" autocomplete="off" />';
-
-			//gadget include autocomplete
-			if( isset($config['gadgets']) ){
-				foreach($config['gadgets'] as $uniq => $info){
-					echo '<label>';
-					$checked = '';
-					if( $uniq == $gadget_content ){
-						$checked = 'checked';
-					}
-					echo '<input type="radio" name="include" value="gadget:'.htmlspecialchars($uniq).'" '.$checked.' data-cmd="IncludePreview" /> ';
-					echo '<span>';
-					echo '<i class="fa fa-puzzle-piece"></i> ' . $uniq;
-					echo '<span class="slug">Gadget</span>';
-					echo '</span>';
-					echo '</label>';
-				}
-			}
-
-
-			//extra area include autocomplete
-			$extra_areas = array();
-			$extra_area_files = scandir($dataDir . '/data/_extra');
-			foreach($extra_area_files as $extra_area_file){
-				if( $extra_area_file ==	'index.html' || $extra_area_file == '.' || $extra_area_file == '..' ){
-					continue;
-				}
-				if( is_dir($dataDir . '/data/_extra/' . $extra_area_file) ){
-					// new
-					$extra_areas[] = $extra_area_file;
-				}elseif( substr($extra_area_file, -4) === '.php' ){
-					// legacy
-					$extra_areas[] = substr($extra_area_file, 0, -4);
-				}
-			}
-			$extra_areas = array_unique($extra_areas);
-			foreach($extra_areas as $extra_area){
-				echo '<label>';
-				$checked = '';
-				if( $extra_content == $extra_area ){
-					$checked = 'checked';
-				}
-				echo '<input type="radio" name="include" value="extra:'.htmlspecialchars($extra_area).'" '.$checked.' data-cmd="IncludePreview" /> ';
-				echo '<span>';
-				echo '<i class="fa fa-cube"></i> ' . $extra_area;
-				echo '<span class="slug">' . $langmessage['theme_content'] . '</span>';
-				echo '</span>';
-				echo '<span style="display:none;"> extra content</span>'; // for autocomplete filtering
-				echo '</label>';
-			}
-
-
-
-			$array = array();
-			foreach($gp_index as $slug => $id){
-
-				if( $page->gp_index == $id ){
-					continue;
-				}
-
-				$label		= \gp\tool::GetLabel($slug);
-				$label		= str_replace( array('&lt;','&gt;','&quot;','&#39;','&amp;'), array('<','>','"',"'",'&')  , $label);
-				$array[]	= array($label,$slug);
-
-				$checked = '';
-				if( $slug == $file_content ){
-					$checked = 'checked';
-				}
-
-				echo '<label>';
-				echo '<input type="radio" name="include" value="file:'.htmlspecialchars($slug).'" '.$checked.'  data-cmd="IncludePreview" /> ';
-				echo '<span>';
-				echo '<i class="fa fa-file-text-o"></i> ' . $label;
-				echo '<span class="slug">' . $langmessage['Page'] . ' /' . $slug . '</span>';
-				echo '</span>';
-				echo '<span style="display:none;"> page</span>'; // for autocomplete filtering
-				echo '</label>';
-			}
-			echo '</div></div>';
-
-			echo '</form>';
-
-
-			$content = ob_get_clean();
-			$page->ajaxReplace[] = array('gp_include_dialog','',$content);
-
-			return false;
-		}
-
-
-		/**
 		 * Return an array
 		 *
 		 */
@@ -943,6 +825,7 @@ namespace gp\tool{
 
 		/**
 		 * Get the posted content for an image area
+		 * @return bool
 		 *
 		 */
 		public static function SectionFromPost_Image( &$section, $dest_dir = '/data/_resized/img_type/' ){
@@ -951,16 +834,23 @@ namespace gp\tool{
 			$page->ajaxReplace = array();
 
 			//source file
-			if( !empty($_REQUEST['file']) ){
-				$source_file_rel = $_REQUEST['file'];
-			}
 			if( !empty($_REQUEST['src']) ){
 				$source_file_rel = rawurldecode($_REQUEST['src']);
 				if( !empty($dirPrefix) ){
 					$len = strlen($dirPrefix);
 					$source_file_rel = substr($source_file_rel,$len);
 				}
+
+			}elseif( !empty($_REQUEST['file']) ){
+				$source_file_rel = $_REQUEST['file'];
+
+			}else{
+				msg($langmessage['OOPS']);
+				return false;
 			}
+
+
+
 			$source_file_rel	= '/'.ltrim($source_file_rel,'/');
 			$source_file_full	= $dataDir.$source_file_rel;
 
@@ -969,7 +859,7 @@ namespace gp\tool{
 				return false;
 			}
 			$src_img = \gp\tool\Image::getSrcImg($source_file_full);
-			if( !$src_img ){
+			if( $src_img === false ){
 				msg($langmessage['OOPS'].' (Couldn\'t create image [1])');
 				return false;
 			}
@@ -1101,6 +991,9 @@ namespace gp\tool{
 				return;
 			}
 
+
+			$rel_id = 'gallery_'.time();
+
 			ob_start();
 
 			echo '<ul class="gp_gallery">';
@@ -1113,17 +1006,131 @@ namespace gp\tool{
 				$img_alt = str_replace('_', ' ', basename(pathinfo($image, PATHINFO_FILENAME)));
 
 				echo '<li>';
-				echo '<a class="gallery_gallery" data-arg="gallery_gallery" href="'.$image.'" data-cmd="gallery">'; // title="'.htmlspecialchars($caption).'"
+				echo '<a class="gallery_gallery" data-arg="gallery_gallery" href="'.$image.'" data-cmd="gallery" rel="'.$rel_id.'">'; // title="'.htmlspecialchars($caption).'"
 				echo '<img src="'.$thumb_path.'" alt="'.$img_alt.'" />';
-				echo '<span class="caption">' . $caption . '</span>';
+				echo '<span class="caption">'.$caption.'</span>';
 				echo '</a>';
 				echo '</li>';
 			}
 			echo '</ul>';
+
 			$section['content'] = ob_get_clean();
 			$section['images'] = $_POST['images'];
 			$section['captions'] = $_POST['captions'];
 			$section['attributes']['class'] = $_POST['attributes']['class'];
+		}
+
+
+		/**
+		 * Include Editing
+		 *
+		 */
+		public static function IncludeOptions(){
+			global $page, $langmessage, $config, $gp_index, $dataDir;
+
+
+			$include_options		= [];
+
+
+			//gadget include autocomplete
+			if( isset($config['gadgets']) ){
+				foreach($config['gadgets'] as $uniq => $info){
+
+					$value				= ['include_type'=>'gadget', 'content'=>$uniq];
+					$include_options[]	= ['value'=>$value, 'label'=>$uniq, 'slug'=>'Gadget', 'filter_aide'=>'', 'icon'=>'fa-puzzle-piece'];
+				}
+			}
+
+
+			//extra area include autocomplete
+			$extra_area_files	= scandir($dataDir . '/data/_extra') or [];
+			foreach($extra_area_files as $extra_area){
+
+				$extra_area	= \gp\admin\Content\Extra::AreaExists($extra_area);
+				if( $extra_area === false ){
+					continue;
+				}
+
+				$value				= ['include_type'=>'extra', 'content'=>$extra_area];
+				$include_options[]	= ['value'=>$value, 'label'=>$extra_area, 'slug'=>$langmessage['theme_content'], 'filter_aide'=>'extra content', 'icon'=>'fa-cube'];
+			}
+
+
+			// pages
+			foreach($gp_index as $slug => $id){
+
+				if( $page->gp_index == $id ){
+					continue;
+				}
+
+				$label				= \gp\tool::GetLabel($slug);
+				$label				= str_replace( array('&lt;', '&gt;', '&quot;', '&#39;', '&amp;'),  array('<', '>', '"', "'", '&')  , $label);
+				$value				= ['include_type'=>'file', 'content'=>$slug, 'index'=>$id ];
+				$include_options[]	= ['value'=>$value, 'label'=>$label, 'slug'=> $langmessage['Page'] . ' /' . $slug, 'filter_aide'=>'page', 'icon'=>'fa-file-text-o'];
+			}
+
+
+			$hashes = [];
+			foreach($include_options as $option){
+				$hash				= sha1(json_encode($option['value']));
+				$hashes[$hash]		= $option;
+			}
+
+
+			return $hashes;
+		}
+
+
+		public static function IncludeDialog( $section ){
+			global $page, $langmessage;
+
+
+			$page->ajaxReplace		= [];
+			$include_options		= self::IncludeOptions();
+			$scrollto				= false;
+
+			if( !array_key_exists('include_type',$section) || isset($section['index']) ){
+				$section['include_type'] = 'file';
+			}
+
+			// generate dialog html
+			ob_start();
+
+			echo '<form id="gp_include_form">';
+
+			echo '<div class="gp_scrolllist"><div>';
+			echo '<input type="text" value="" class="gpsearch" placeholder="'.$langmessage['Search'].'" autocomplete="off" />';
+
+			foreach($include_options as $hash => $option){
+
+				$checked = '';
+				if( $option['value']['include_type'] === $section['include_type'] && $option['value']['content'] === $section['content'] ){
+					$checked = 'checked';
+					$scrollto = $hash;
+				}
+
+				echo '<label>';
+				echo '<input type="radio" name="include" value="' . $hash . '" ' . $checked . '  data-cmd="IncludePreview" /> ';
+				echo '<span>';
+				echo '<i class="fa ' . $option['icon'] . '"></i> ' . str_replace('_', ' ', $option['label']);
+				echo '<span class="slug">' . $option['slug'] . '</span>';
+				echo '</span>';
+				echo '<span style="display:none;"> '. $option['filter_aide'] . '</span>'; // for autocomplete filtering
+				echo '</label>';
+
+			}
+
+			echo '</div></div>';
+			echo '</form>';
+			if( $scrollto ){
+				echo '<script> $(\'input[value="'.$scrollto.'"]\').get(0).scrollIntoView(true); </script>';
+			}
+
+
+			$content = ob_get_clean();
+			$page->ajaxReplace[] = array('gp_include_dialog','',$content);
+
+			return false;
 		}
 
 
@@ -1134,55 +1141,24 @@ namespace gp\tool{
 		public static function SectionFromPost_Include( &$existing_section, $section_num, $title, $file_stats ){
 			global $page, $langmessage, $gp_index, $config;
 
-			unset($existing_section['index']);
 
+			$include_options		= self::IncludeOptions();
+			$include				= $_POST['include'];
 
-			//gadget include
-			if( strpos($_POST['include'],'gadget:') === 0 ){
-				$gadget = substr($_POST['include'],7);
-				if( !isset($config['gadgets'][$gadget]) ){
-					msg($langmessage['OOPS_TITLE']);
-					return false;
-				}
-
-				$existing_section['include_type']	= 'gadget';
-				$existing_section['content']		= $gadget;
-
-			//extra area include
-			}elseif( strpos($_POST['include'],'extra:') === 0 ){
-				$include_title = substr($_POST['include'],6);
-
-				// msg("AreaExists: " . pre(\gp\admin\Content\Extra::AreaExists($include_title)));
-				if( \gp\admin\Content\Extra::AreaExists($include_title) === false && \gp\admin\Content\Extra::AreaExists($include_title.'.php') === false ){
-					msg($langmessage['OOPS'] .  ' Extra Content Area ' . $include_title . ' does not exist.');
-					return false;
-				}
-				// $existing_section['include_type']	= 'extra';
-				ob_start();
-				\gp\tool\Output::GetExtra($include_title);
-				$content	= ob_get_clean();
-
-				$existing_section['include_type']	= 'extra';
-				$existing_section['content']		= $include_title;
-
-
-			//file include
-			}elseif( strpos($_POST['include'],'file:') === 0 ){
-				$include_title = substr($_POST['include'],5);
-
-				if( !isset($gp_index[$include_title]) ){
-					msg($langmessage['OOPS_TITLE']);
-					return false;
-				}
-				$existing_section['include_type']	= \gp\tool::SpecialOrAdmin($include_title);
-				$existing_section['index']			= $gp_index[$include_title];
-				$existing_section['content']		= $include_title;
+			if( !array_key_exists($include,$include_options) ){
+				msg($langmessage['OOPS_TITLE']);
+				return false;
 			}
 
 
-			//send replacement content
-			$content = \gp\tool\Output\Sections::RenderSection( $existing_section, $section_num, $title, $file_stats );
-			$page->ajaxReplace[] = array('gp_include_content','',$content);
+			// update include configuration
+			unset($existing_section['index']);
+			$existing_section					= $include_options[$include]['value'] + $existing_section;
+
+
+			// send replacement content
+			$content							= \gp\tool\Output\Sections::RenderSection( $existing_section, $section_num, $title, $file_stats );
+			$page->ajaxReplace[]				= array('gp_include_content','',$content);
 			return true;
 		}
 

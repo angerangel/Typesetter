@@ -4,44 +4,86 @@ namespace gp\admin\Tools;
 
 defined('is_running') or die('Not an entry point...');
 
-class Status{
+class Status extends \gp\special\Base{
 
-	protected $check_dir_len = 0;
-	protected $failed_count = 0;
-	protected $passed_count = 0;
-	protected $show_failed_max = 50;
+	protected $check_dir_len	= 0;
+	protected $failed_count		= 0;
+	protected $failed			= [];
+	protected $passed_count		= 0;
+	protected $show_failed_max	= 50;
+	protected $deletable		= [];
+
+	protected $euid;
 
 	public function __construct(){
-		global $dataDir, $langmessage;
+
+	}
+
+	public function RunScript(){
+		global $langmessage;
 
 		echo '<h2>'.$langmessage['Site Status'].'</h2>';
 
-		$check_dir = $dataDir.'/data';
-		$this->check_dir_len = strlen($check_dir);
-		$this->euid = '?';
+		$cmd = \gp\tool::GetCommand();
+		switch($cmd){
+			case 'FixOwner':
+				$this->FixOwner();
+			break;
+		}
+
+		$this->CheckDataDir();
+		$this->DefaultDisplay();
+	}
+
+	public function CheckDataDir(){
+		global $dataDir;
+
+		$this->check_dir_len	= 0;
+		$this->failed_count		= 0;
+		$this->passed_count		= 0;
+		$this->show_failed_max	= 50;
+
+
+		$check_dir				= $dataDir.'/data';
+		$this->check_dir_len	= strlen($check_dir);
+		$this->euid				= '?';
+
 		if( function_exists('posix_geteuid') ){
 			$this->euid = posix_geteuid();
 		}
 
 
-		ob_start();
 		$this->CheckDir($check_dir);
-		$failed_output = ob_get_clean();
+	}
 
-		$checked = $this->passed_count + $this->failed_count;
+	public function DefaultDisplay(){
+		global $langmessage, $dataDir;
 
-		if( $this->failed_count == 0 ){
+		$check_dir		= $dataDir.'/data';
+		$checked		= $this->passed_count + $this->failed_count;
+
+		if( $this->failed_count === 0 ){
 			echo '<p class="gp_passed">';
 			echo sprintf($langmessage['data_check_passed'],$checked,$checked);
 			echo '</p>';
+			$this->ShowDeletable();
 
-			//$this->CheckPageFiles();
 			return;
 		}
 
 		echo '<p class="gp_notice">';
 		echo sprintf($langmessage['data_check_failed'],$this->failed_count,$checked);
 		echo '</p>';
+
+
+		// the /data directory isn't writable
+		if( count($this->failed) == 1 && in_array($check_dir,$this->failed) ){
+			echo '<p class="gp_notice">';
+			echo '<b>WARNING:</b> Your data directory at is no longer writable: '.$check_dir;
+			echo '</p>';
+			return;
+		}
+
 
 		if( $this->failed_count > $this->show_failed_max ){
 			echo '<p class="gp_notice">';
@@ -53,26 +95,68 @@ class Status{
 		echo '<table class="bordered">';
 		echo '<tr><th>';
 		echo $langmessage['file_name'];
-		echo '</th><th colspan="2">';
-		echo $langmessage['permissions'];
-		echo '</th><th colspan="2">';
+		echo '</th><th>';
 		echo $langmessage['File Owner'];
+		echo '<br/>';
+		echo $langmessage['Current_Value'];
+		echo '</th><th>';
+		echo '<br/>';
+		echo $langmessage['Expected_Value'];
+		echo '</th><th> &nbsp;';
 		echo '</th></tr>';
 
-		echo '<tr><td>&nbsp;</td><td>';
-		echo $langmessage['Current_Value'];
-		echo '</td><td>';
-		echo $langmessage['Expected_Value'];
-		echo '</td><td>';
-		echo $langmessage['Current_Value'];
-		echo '</td><td>';
-		echo $langmessage['Expected_Value'];
-		echo '</td></tr>';
-		echo $failed_output;
+
+		// sort by strlen to get directories first
+		usort($this->failed, function($a, $b) {
+		    return strlen($a) - strlen($b);
+		});
+
+		foreach($this->failed as $i => $path){
+
+			if( $i > $this->show_failed_max ){
+				break;
+			}
+
+			$readable_path		= substr($path,$this->check_dir_len);
+			$euid				= \gp\install\FilePermissions::file_uid($path);
+
+			echo '<tr><td>';
+			echo $readable_path;
+			echo '</td><td>';
+
+			echo $this->ShowUser($euid);
+			echo '</td><td>';
+			echo $this->ShowUser($this->euid);
+			echo '</td><td>';
+			echo \gp\tool::Link('Admin/Status','Fix','cmd=FixOwner&path='.rawurlencode($readable_path),'data-cmd="cnreq"');
+			echo '</td></tr>';
+		}
+
 		echo '</table>';
 
 		$this->CheckPageFiles();
+		$this->ShowDeletable();
+
 	}
+
+	/**
+	 * Show Deletable Files
+	 */
+	protected function ShowDeletable(){
+		if( empty($this->deletable) ){
+			return;
+		}
+
+		echo '<h3>Deletable Files</h3>';
+		echo '<ol>';
+		foreach($this->deletable as $file){
+			echo '<li>'.htmlspecialchars($file).'</li>';
+		}
+		echo '</ol>';
+
+	}
+
+
 
 	/**
 	 * Check page files for orphaned data files
@@ -109,22 +193,26 @@ class Status{
 		echo '</table>';
 	}
 
-
+	/**
+	 * Check the ownership of the directory and files within it
+	 * @param string $dir
+	 *
+	 */
 	protected function CheckDir($dir){
-		$this->CheckFile($dir);
+
+		if( !$this->CheckFile($dir) ){
+			return;
+		}
 
 		$dh = @opendir($dir);
-		if( !$dh ){
-			echo '<tr><td colspan="3">';
-			echo '<p class="gp_notice">';
-			echo 'Could not open data directory: '.$check_dir;
-			echo '</p>';
-			echo '</td></tr>';
+		if( $dh === false ){
+			$this->failed_count++;
+			$this->failed[] = $dir;
 			return;
 		}
 
 		while( ($file = readdir($dh)) !== false){
-			if( $file == '.' || $file == '..' ){
+			if( $file === '.' || $file === '..' ){
 				continue;
 			}
 
@@ -133,8 +221,13 @@ class Status{
 				continue;
 			}
 
+			if( preg_match('#x-deletable-[0-9]+#',$full_path) ){
+				$this->deletable[] = $full_path;
+				continue;
+			}
+
 			if( is_dir($full_path) ){
-				$this->CheckDir($full_path,'dir');
+				$this->CheckDir($full_path);
 			}else{
 				$this->CheckFile($full_path,'file');
 			}
@@ -143,13 +236,10 @@ class Status{
 
 	protected function CheckFile($path,$type='dir'){
 
-		$current = '?';
-		$expected = '777';
-		$euid = '?';
 		if( \gp\install\FilePermissions::HasFunctions() ){
 			$current = @substr(decoct( @fileperms($path)), -3);
 
-			if( $type == 'file' ){
+			if( $type === 'file' ){
 				$expected = \gp\install\FilePermissions::getExpectedPerms_file($path);
 			}else{
 				$expected = \gp\install\FilePermissions::getExpectedPerms($path);
@@ -157,37 +247,101 @@ class Status{
 
 			if( \gp\install\FilePermissions::perm_compare($expected,$current) ){
 				$this->passed_count++;
-				return;
+				return true;
 			}
-
-			$euid = \gp\install\FilePermissions::file_uid($path);
 
 		}elseif( gp_is_writable($path) ){
 			$this->passed_count++;
-			return;
+			return true;
 		}
 
 		$this->failed_count++;
+		$this->failed[] = $path;
 
-		if( $this->failed_count > $this->show_failed_max ){
+		return false;
+	}
+
+
+	/**
+	 * Display a user name and uid
+	 * @param int $uid
+	 */
+	protected function ShowUser($uid){
+		$user_info = posix_getpwuid($uid);
+		if( $user_info ){
+			return $user_info['name'].' ('.$uid.')';
+		}
+
+		return $uid;
+	}
+
+
+	/**
+	 * Attempt to fix the ownership issue of the posted file
+	 * 1) create a copy of the file
+	 * 2) move old to temp folder
+	 * 3) move new into original place of old
+	 * 4) attempt to delete temp folder
+	 *
+	 */
+	public function FixOwner(){
+		global $dataDir, $langmessage;
+
+
+		$to_fix				= '/data'.$_REQUEST['path'];
+		$to_fix_full		= $dataDir . $to_fix;
+		$new_file			= \gp\tool\FileSystem::TempFile($to_fix);
+		$new_file_full		= $dataDir . $new_file;
+		$deletable			= \gp\tool\FileSystem::TempFile(dirname($to_fix).'/x-deletable');
+		$deletable_full		= $dataDir . $deletable;
+
+		if( !\gp\tool\Files::CheckPath( $to_fix_full ) ){
+			msg($langmessage['OOPS'].' Invalid Path');
 			return;
 		}
 
-		echo '<tr><td>';
-		echo substr($path,$this->check_dir_len);
-		echo '</td><td>';
 
-		echo $current;
-		echo '</td><td>';
-		echo $expected;
-		echo '</td><td>';
-		echo $euid;
-		echo '</td><td>';
-		echo $this->euid;
-		echo '</td></tr>';
+		echo '<ol>';
+		echo '<li>Copy: '.$to_fix.' -&gt; ' . $new_file . '</li>';
+
+		if( !\gp\admin\Tools\Port::CopyAll($to_fix_full,$new_file_full) ){
+			echo '<li>Failed</li>';
+			echo '</ol>';
+			msg($langmessage['OOPS'].' Not Copied');
+			\gp\tool\Files::RmAll($new_file_full);
+			return;
+		}
+
+		// move old to deletable
+		echo '<li>Move: '.$to_fix.' -&gt; ' . $deletable . '</li>';
+		if( !rename($to_fix_full,$deletable_full) ){
+			echo '<li>Failed</li>';
+			echo '</ol>';
+			msg($langmessage['OOPS'].' Rename to deletable failed');
+			\gp\tool\Files::RmAll($new_file_full);
+			return;
+		}
+
+
+		// move
+		echo '<li>Move: '.$new_file.' -&gt; ' . $to_fix . '</li>';
+		if( !rename($new_file_full, $to_fix_full) ){
+			echo '<li>Failed</li>';
+			echo '</ol>';
+			msg($langmessage['OOPS'].' Rename to old failed');
+			return;
+		}
+
+		echo '<li>Success</li>';
+
+		// attempt to remove deletable
+		if( !\gp\tool\Files::RmAll($deletable_full) ){
+			echo '<li>Note: '.$deletable.' was not deleted</li>';
+		}
+
+		echo '</ol>';
 
 	}
 
 
 }
-

@@ -15,6 +15,12 @@
 
 		allowAutoSave: true,
 
+		debug:function(msg){
+			if( debugjs ){
+				console.log(msg);
+			}
+		},
+
 		CanAutoSave: function(){ 
 			return gp_editor.allowAutoSave || true; 
 		},
@@ -44,8 +50,7 @@
 			args.gp_hidden				= [];
 			args.cmd					= 'SaveSections';
 
-			$('#gpx_content.gp_page_display').find('.editable_area').each( function(i) {
-
+			$('#gpx_content.gp_page_display').find('.editable_area').each(function(i){
 
 				//new section order and new sections
 				var $this	= $(this);
@@ -63,7 +68,7 @@
 				args.section_order.push(value);
 
 				//attributes
-				args.attributes[i] = $this.data('gp-attrs');
+				args.attributes[i]		= $this.data('gp-attrs');
 
 				//wrappers
 				if( type == 'wrapper_section' ){
@@ -84,22 +89,9 @@
 
 			});
 
-			/*
+			/**
 			 * FIX for too many sections issue
-			 *
-			 * with large amounts of sections, we may exceed max_post_values
-			 * which causes an error and prevents further editing of the page.
-			 *
-			 * sending all the section data in a single JSON string 
-			 * instead of parametrizing all values will address this issue.
-			 *
-			 * the current implementation should be considered as a hot fix.
-			 * it should eventually be done more elegant.
-			 *
-			 * See its server side counterpart in /include/Page/Edit.php line 490-519
 			 */
-
-			// console.log('manage_sections -> SaveData -> args = ', args);
 			var json_encoded = JSON.stringify(args, function(key, value){
 				// make sure every value is a string
 				switch( value ){
@@ -107,12 +99,15 @@
 					case undefined:
 						value = "";
 						break;
+
 					case true:
 						value = "true";
 						break;
+
 					case false:
 						value = "false";
 						break;
+
 					default:
 						if( $.isNumeric(value) ){
 							value = "" + value;
@@ -121,14 +116,7 @@
 				}
 				return value;
 			});
-			// console.log('manage_sections -> SaveData -> json_encoded = ' + json_encoded);
 			return 'cmd=SaveSections&sections_json=' + encodeURIComponent(json_encoded);
-
-			/*
-			 * FIX for too many sections issue
-			 * 
-			 */
-			 // return $.param(args);
 
 		},
 
@@ -174,12 +162,10 @@
 					}
 				}
 				if( v.destroy ){
-					// console.log('gp_editor.AfterSave.' + i + ' deleted');
 					delete( gp_editor.AfterSave[i] );
 				}
 			});
 			// console.log('Done executing gp_editor.AfterSave = ', gp_editor.AfterSave);
-
 		},
 
 
@@ -192,15 +178,15 @@
 			$('#gpx_content.gp_page_display').find('.editable_area').each( function(i){
 				var $this		= $(this);
 
-				$this.data('gp-section',i).attr('data-gp-section',i);
+				$this.data('gp-section',i).attr('data-gp-section', i);
 
 				var area_id		= $gp.AreaId( $this );
 				var href		= $('#ExtraEditLink'+area_id).attr('href') || '';
 
-				href = href.replace(/section\=[0-9]+/,'');
-				href = $gp.jPrep(href,'section='+i);
+				href = href.replace(/section\=[0-9] + /, '');
+				href = $gp.jPrep(href, 'section=' + i);
 
-				$('#ExtraEditLink'+area_id).attr('href',href);
+				$('#ExtraEditLink'+area_id).attr('href', href);
 			});
 
 		},
@@ -212,11 +198,9 @@
 		 */
 		SaveToClipboard: function(area_id){
 
-			// console.log("arguments = " , arguments);
-			// console.log("SaveToClipboard called with area_id = ", area_id);
 			var $li = $('#section_sorting li[data-gp-area-id="' + area_id + '"]');
 			if( !$li.length ){
-				console.log('SaveToClipboard Error: section_sorting li[data-gp-area-id="' + area_id + '"] does not exist!');
+				gp_editor.debug('SaveToClipboard Error: section_sorting li[data-gp-area-id="' + area_id + '"] does not exist!');
 				return;
 			}
 			var $area			= gp_editor.GetArea( $li );
@@ -226,12 +210,11 @@
 				cmd				: 'SaveToClipboard',
 				section_number	: section_number
 			};
-			// console.log("SectionToClipboard", data);
-			data = jQuery.param(data);
+
+			data = $.param(data);
 			$gp.postC(window.location.href, data);
 			loading();
 		},
-
 
 
 		/**
@@ -240,19 +223,13 @@
 		 */
 		SectionFromClipboard: function(item_index){
 
-			// console.log("SectionFromClipboard: item_index = " + item_index);
-
 			var $link = $('#section-clipboard-items '
 				+ 'li[data-item_index="' + item_index + '"] '
 				+ 'a.preview_section');
 
-			// console.log("SectionFromClipboard: $link = " , $link);
-
 			//remove preview
 			$link.removeClass('previewing');
 			$('.temporary-section').remove();
-
-			// console.log("$section = " , $link.data('response'));
 
 			// append section(s) content client side
 			var $section = $($link.data('response'))
@@ -273,15 +250,10 @@
 				item_number	: item_index
 			};
 
-			// console.log("AddFromClipboard", data);
-			data = jQuery.param(data);
+			data = $.param(data);
 			$gp.postC(window.location.href, data);
 			loading();
-
 		},
-
-
-
 
 
 		/**
@@ -303,7 +275,7 @@
 				cmd		: 'ReorderClipboardItems',
 				order	: new_order
 			};
-			data = jQuery.param(data);
+			data = $.param(data);
 			$gp.postC(window.location.href, data);
 			loading();
 		},
@@ -352,10 +324,9 @@
 			this.InitClipboard();
 			this.resetDirty();
 
+			$gp.$win.on('resize', this.MaxHeight).trigger('resize');
 
-			$gp.$win.on('resize', this.MaxHeight ).resize();
-
-			$('#ckeditor_area').on('dragstop',this.MaxHeight);
+			$('#ckeditor_area').on('dragstop', this.MaxHeight);
 
 			$gp.response.clipboard_init = this.InitClipboard;
 
@@ -401,16 +372,15 @@
 			$list.html(html);
 
 			$('.section_drag_area').sortable({
-				distance:				4,
-				tolerance:				'pointer', /** otherwise sorting elements into collapsed area causes problems */
-				stop:					function(evt, ui){
-											mgr_object.DragStop(evt, ui);
-										},
-				connectWith:			'.section_drag_area',
-				cursorAt:				{ left: 7, top: 7 }
+				distance :		4,
+				tolerance :		'pointer', /** otherwise sorting elements into collapsed area causes problems */
+				stop :			function(evt, ui){
+									mgr_object.DragStop(evt, ui);
+								},
+				connectWith :	'.section_drag_area',
+				cursorAt :		{ left: 7, top: 7 }
 
 			}).disableSelection();
-
 
 			this.HoverListener($list);
 		},
@@ -463,6 +433,10 @@
 
 				// highlight sections in editor
 				$this.on("mouseenter", function(){
+					$('li[data-gp-area-id].section-sorting-highlight')
+						.not($('li[data-gp-area-id="' + area_id + '"]').parents('li'))
+						.not($('li[data-gp-area-id="' + area_id + '"]').find('li'))
+							.removeClass('section-sorting-highlight');
 					$('li[data-gp-area-id="' + area_id + '"]').addClass('section-sorting-highlight');
 				}).on("mouseleave", function(){
 					$('li[data-gp-area-id="' + area_id + '"]').removeClass('section-sorting-highlight');
@@ -493,7 +467,7 @@
 					html += '<a data-cmd="WrapperToggle" class="secsort_wrapper_toggle"/>';
 				}
 
-				html += '<span class="section_label">'+label+'</span>';
+				html += '<span class="section_label">' + label + '</span>';
 				html += '</i>';
 				html += '</div>';
 
@@ -535,6 +509,9 @@
 			//moved after another section
 			if( $prev_area.length ){
 				$area.insertAfter($prev_area).trigger('SectionSorted');
+
+				// trigger immediate save
+				gp_editing.SaveChanges();
 				return;
 			}
 
@@ -542,14 +519,18 @@
 			var $ul			= ui.item.parent().closest('ul');
 			if( $ul.attr('id') == 'section_sorting' ){
 				$area.prependTo('#gpx_content').trigger('SectionSorted');
+
+				// trigger immediate save
+				gp_editing.SaveChanges();
 				return;
 			}
-
 
 			//moved to beginning of wrapper
 			this.GetArea($ul.parent()).prepend($area);
 			$area.trigger('SectionSorted');
 
+			// trigger immediate save
+			gp_editing.SaveChanges();
 		},
 
 
@@ -566,11 +547,13 @@
 				var $this = $(this).parent();
 				var $area = mgr_object.GetArea($this);
 
+				/*
 				scrollto_section_timeout = setTimeout(function(){
 					//scroll the page
 					var top		= $area.offset().top - 200;
 					$('html,body').stop().animate({scrollTop: top});
 				}, 1200);
+				*/
 
 
 				$('.section-item-hover').removeClass('section-item-hover');
@@ -584,17 +567,16 @@
 				var $this = $(this).parent();
 				var $area = mgr_object.GetArea($this);
 
+				/*
 				if( scrollto_section_timeout ){
 					clearTimeout(scrollto_section_timeout);
 				}
+				*/
 
 				$area.removeClass('section-highlight');
 				$this.removeClass('section-item-hover');
-
 			});
-
 		},
-
 
 
 		/**
@@ -602,9 +584,9 @@
 		 *
 		 */
 		GetArea: function($li){
-			var id		= $gp.AreaId( $li );
-			return $('#ExtraEditArea'+id);
-		},
+			var id = $gp.AreaId( $li );
+			return $('#ExtraEditArea' + id);
+		}
 
 	}; /* /gp_editor */
 
@@ -625,25 +607,21 @@
 			return;
 		}
 
-
 		//remove other preview
 		$('.previewing').removeClass('previewing');
 		$('.temporary-section').stop().slideUp(function(){
 			$(this).remove();
 		});
 
-
 		preview_timeout = setTimeout(function(){
 
 			//scroll the page
-			var $last	= $('#gpx_content .editable_area:last');
+			var $last	= $('#gpx_content .editable_area').last();
 			var top		= $last.offset().top + $last.height() - 200;
-			$('html,body').stop().animate({scrollTop: top});
-
+			$('html, body').stop().animate({scrollTop: top});
 
 			//begin new preview
 			$this.addClass('previewing');
-
 
 			var $new_content	= $($this.data('response'));
 
@@ -661,12 +639,11 @@
 				.trigger("PreviewAdded");
 
 			var node = $new_content.get(0);
-			$this.data('preview-section',node);
+			$this.data('preview-section', node);
 
-		},200);
+		}, 200);
 
-
-	}).on('mouseleave','.preview_section',function(){
+	}).on('mouseleave', '.preview_section', function(){
 
 		if( preview_timeout ){
 			clearTimeout(preview_timeout);
@@ -678,7 +655,6 @@
 			$(this).parent().trigger("PreviewRemoved");
 			$(this).remove();
 		});
-
 	});
 
 
@@ -695,7 +671,6 @@
 		$this.removeClass('previewing');
 		$('.temporary-section').remove();
 
-
 		//new content
 		var $section = $($this.data('response')).appendTo('#gpx_content');
 
@@ -705,6 +680,9 @@
 
 		gp_editor.InitSorting();
 		$this.removeClass('previewing').trigger('mousemove');
+
+		// trigger immediate save
+		gp_editing.SaveChanges();
 	};
 
 
@@ -738,7 +716,6 @@
 	};
 
 
-
 	/**
 	 * Set Section Visibility
 	 *
@@ -747,30 +724,37 @@
 		var $li = $(this).closest('li');
 		var $area = gp_editor.GetArea($li);
 		var is_hidden = $area.data('gp_hidden');
-		if( is_hidden ){
 
-		$area
-			.attr('data-gp_hidden', false)
-			.data('gp_hidden', false)
-			.hide().slideDown(300);
+		if( is_hidden ){
 
 			$(this)
 				.removeClass("fa-eye")
 				.addClass("fa-eye-slash");
 			$li.removeClass("gp-section-hidden");
 
+			$area
+				.attr('data-gp_hidden', false)
+				.data('gp_hidden', false)
+				.hide().slideDown(150, function(){
+					// trigger immediate save
+					gp_editing.SaveChanges();
+				});
+
 		}else{
 
-			$area.slideUp(300, function(){ 
-				$area
-					.attr('data-gp_hidden', true)
-					.data('gp_hidden', true);
-			});
 			$(this)
 				.removeClass("fa-eye-slash")
 				.addClass("fa-eye");
 			$li.addClass("gp-section-hidden");
 
+			$area.slideUp(150, function(){
+				$area
+					.attr('data-gp_hidden', true)
+					.data('gp_hidden', true);
+
+				// trigger immediate save
+				gp_editing.SaveChanges();
+			});
 		}
 	};
 
@@ -783,11 +767,17 @@
 		var $this = $(this);
 		var $li = $this.closest('li');
 		var area_id = $li.attr("data-gp-area-id");
+
+		if( evt.ctrlKey ){
+			$gp.DeleteSection(area_id);
+			return;
+		}
+
 		var html = '<div class="inline_box">';
 		html += '<h2>' + gplang.del + '</h2>';
 		html += '<p>';
 		html += gplang.generic_delete_confirm.replace(
-			'%s', '<strong>' + $li.find(".section_label").first().text() + '</strong>' 
+			'%s', '<strong>' + $li.find(".section_label").first().text() + '</strong>'
 		); // gplang.Section.replace('%s','') + 
 		html += '<br/><br/></p><p>';
 		html += '<a class="gpsubmit" onClick="$gp.DeleteSection(' + area_id + ')">' + gplang.del + '</a>';
@@ -815,6 +805,9 @@
 			$li.remove();
 		}
 		$gp.CloseAdminBox();
+
+		// trigger immediate save
+		gp_editing.SaveChanges();
 	};
 
 
@@ -831,6 +824,9 @@
 			$area.parent().trigger("SectionRemoved");
 			$area.remove();
 			$li.remove();
+
+			// trigger immediate save
+			gp_editing.SaveChanges();
 		}
 	};
 
@@ -845,8 +841,12 @@
 
 		NewSectionIds(new_area);
 		from_area.after(new_area);
+		new_area.trigger("SectionCopied");
 		new_area.trigger("SectionAdded");
 		gp_editor.InitSorting();
+
+		// trigger immediate save
+		gp_editing.SaveChanges();
 	};
 
 
@@ -857,7 +857,6 @@
 	 */
 	$gp.links.SectionToClipboard = function(evt){
 		var area_id		= $(this).closest('li').data('gp-area-id');
-		// console.log("SectionToClipboard: area_id = " + area_id);
 		var is_dirty	= gp_editor.checkDirty();
 		if( is_dirty ){
 			// inhibit auto-save while doing instant saving to prevent timing conflicts
@@ -889,7 +888,7 @@
 
 		var item_index = $(this).closest('li').attr("data-item_index");
 		if( !item_index ){
-			console.log('RemoveSectionClipboardItem Error: Atribute data_item_index missing');
+			gp_editor.debug('RemoveSectionClipboardItem Error: Atribute data_item_index missing');
 			return;
 		}
 
@@ -897,7 +896,7 @@
 			cmd				: 'RemoveFromClipboard',
 			item_number		: item_index
 		};
-		data = jQuery.param(data);
+		data = $.param(data);
 		$gp.postC(window.location.href, data);
 		loading();
 	};
@@ -911,7 +910,7 @@
 
 		var item_index = $(this).closest('li').attr("data-item_index");
 		if( !item_index ){
-			console.log('RelabelClipboardItem Error: Atribute data_item_index missing');
+			gp_editor.debug('RelabelClipboardItem Error: Atribute data_item_index missing');
 			return;
 		}
 
@@ -923,7 +922,7 @@
 
 		var tmpInput = $('<input type="text" value="' + $label.text() + '"/>')
 			.insertAfter($label)
-			.focus()
+			.trigger('focus')
 			.select()
 			// when blurred, remove <input> and show hidden elements
 			// same when esc or enter key is entered
@@ -951,7 +950,7 @@
 					item_number		: item_index,
 					new_label		: label,
 				};
-				data = jQuery.param(data);
+				data = $.param(data);
 				$gp.postC(window.location.href, data);
 				loading();
 			});
@@ -976,14 +975,14 @@
 
 		//build html
 		var html = '<span class="secsort_color_swatches">';
-		for( var i=0; i<colors.length; i++ ){
-			html += '<a style="background:' + colors[i] + ';" data-color="' + colors[i] + '"	data-cmd="SelectColor"/>';
+		for( var i = 0; i < colors.length; i++ ){
+			html += '<a style="background:' + colors[i] + ';" data-color="' + colors[i] + '" data-cmd="SelectColor"/>';
 		}
 
 		$li.children('div').hide();
-		var $colors	= $(html+'</span>').prependTo($li);
+		var $colors	= $(html + '</span>').prependTo($li);
 
-		$(document).one('click',function(){
+		$(document).one('click', function(){
 			$colors.remove();
 			$li.children().show();
 		});
@@ -1001,10 +1000,14 @@
 		var $area		= gp_editor.GetArea( $li );
 		var newColor 	= $this.attr('data-color');
 
-		$li.find('.color_handle:first').css('background-color',newColor);
-		$area.attr('data-gp_color',newColor).data('gp_color',newColor);
+		$li.find('.color_handle').first().css('background-color', newColor);
+		$area.attr('data-gp_color',newColor).data('gp_color', newColor);
 		$li.find('.secsort_color_swatches').remove();
 		$li.children().show();
+
+		// trigger immediate save
+		var callback = function(){};
+		gp_editing.SaveChanges(callback, false); // passing false as 2nd argument will prevent creating a new draft
 	};
 
 
@@ -1025,7 +1028,11 @@
 			$li.addClass(clss);
 		}
 
-		$area.attr('data-gp_collapse',clss).data('gp_collapse',clss);
+		$area.attr('data-gp_collapse', clss).data('gp_collapse', clss);
+
+		// trigger immediate save
+		var callback = function(){};
+		gp_editing.SaveChanges(callback, false); // passing false as 2nd argument will prevent creating a new draft
 	};
 
 
@@ -1037,7 +1044,7 @@
 		var $li				= $(this).closest('li');
 		var $area			= gp_editor.GetArea( $li );
 		var area_id			= $gp.AreaId($li);
-		var $lnk			= $('#ExtraEditLink'+area_id);
+		var $lnk			= $('#ExtraEditLink' + area_id);
 		var arg				= $lnk.data('arg');
 
 		$gp.LoadEditor($lnk.get(0).href, area_id, arg);
@@ -1047,16 +1054,14 @@
 		var el_top			= $area.offset().top;
 		var el_bottom		= el_top + $area.height();
 
-
 		var view_top		= $gp.$win.scrollTop();
 		var view_bottom		= view_top + $gp.$win.height();
-
 
 		if( (el_bottom > view_top) && (el_top < view_bottom) ){
 			return;
 		}
 
-		$('html,body').stop().animate({scrollTop: el_top-200});
+		$('html,body').stop().animate({scrollTop: el_top - 200});
 	};
 
 
@@ -1071,15 +1076,13 @@
 		var id					= $li.data('gp-area-id')
 		var attrs				= gp_editor.GetArea( $li ).data('gp-attrs');
 		var current_classes		= '';
-
+		var available_classes	= '';
 
 		//popup
 		html = '<div class="inline_box"><form id="section_attributes_form" data-gp-area-id="' + id + '">';
-		html = '<div class="inline_box"><form id="section_attributes_form" data-gp-area-id="' + id + '">';
 		html += '<h2>' + gplang.SectionAttributes + '</h2>';
 		html += '<table class="bordered full_width">';
-		html += '<thead><tr><th>' + gplang.Attribute + '</th><th>' + gplang.Value + '</th></tr></thead><tbody>';
-
+		html += '<thead><tr><th style="width:25%;">' + gplang.Attribute + '</th><th>' + gplang.Value + '</th></tr></thead><tbody>';
 
 		$.each(attrs,function(name){
 
@@ -1101,11 +1104,10 @@
 				current_classes = value.split(' ');
 			}
 
-
 			html += '<tr><td>';
-			html += '<input class="gpinput attr_name" value="' + $gp.htmlchars(name) + '" size="8" />';
-			html += '</td><td style="white-space:nowrap">';
-			html += '<input class="gpinput attr_value" value="' + $gp.htmlchars(value) + '" size="40" />';
+			html += '<input class="gpinput attr_name" value="' + $gp.htmlchars(name) + '" style="width:100%;" />';
+			html += '</td><td class="ui-front" style="white-space:nowrap">';
+			html += '<textarea rows="1" class="gptextarea attr_value' + (name == 'class' ? ' attr_value_class' : '') + '">' + $gp.htmlchars(value) + '</textarea>';
 			if( name == 'class' ){
 				html += '<div class="class_only admin_note">Default: GPAREA filetype-*</div>';
 			}
@@ -1119,24 +1121,28 @@
 
 		html += '<br/>';
 
-
 		//available classes
 		html += '<div id="gp_avail_classes">';
 		html += '<table class="bordered full_width">';
-		html += '<thead><tr><th colspan="2">' + gplang.AvailableClasses + '</th></tr></thead>';
-		html += '<tbody>';
-		for( var i=0; i < gp_avail_classes.length; i++ ){
-			html += '<tr><td>';
-			html += ClassSelect(gp_avail_classes[i].names, current_classes);
-			html += '</td><td class="sm text-muted">';
-			html += gp_avail_classes[i].desc;
-			html += '</td></tr>';
-		}
 
-		html += '</table>';
-		html += '</tbody>';
+		html += '<thead><tr><th>' + gplang.AvailableClasses + '</th></tr></thead>';
+
+		html += '<tbody><tr><td>';
+
+		html += '<div class="avail_classes_container">';
+		for( var i=0; i < gp_avail_classes.length; i++ ){
+			html += '<div class="avail_classes_col">';
+			html += ClassSelect(gp_avail_classes[i].names, current_classes);
+			html += '</div>';
+			html += '<div class="avail_classes_desc">' + gp_avail_classes[i].desc + '<span x-arrow="true" class="popover_arrow"></span></div>';
+			available_classes += ' ' + gp_avail_classes[i].names;
+		}
 		html += '</div>';
 
+		html += '</td></tr>';
+		html += '</tbody></table>';
+
+		html += '</div>';
 
 		html += '<p>';
 		html += '<input type="button" name="" value="' + gplang.up + '" class="gpsubmit" data-cmd="UpdateAttrs" /> ';
@@ -1146,18 +1152,237 @@
 		html += '</form></div>';
 		var $html = $(html);
 
-		var selects = $html.find('select').on('change input',function(){
-			var $checkbox = $(this).closest('label').find('.gpcheck');
-			$checkbox.prop('checked',true);
-			$gp.inputs.ClassChecked.apply($checkbox);
-		});
+		available_classes = available_classes
+			.trim()
+			.split(/(\s+)/)
+			.filter(function(e){
+				return e.trim().length > 0;
+			});
+		// console.log('available_classes = ', available_classes);
+
+		var $classes_input = $html.find('.attr_value_class')
+			.on('keydown', function(evt){
+				// prevent tabbing to other controls when autocomplete list has focus
+				if( evt.keyCode === $.ui.keyCode.TAB && $(this).autocomplete('instance').menu.active ){
+					evt.preventDefault();
+				}
+			})
+			.on('focus keyup mouseup touchend', function(){
+				TextareaSetAutocomplete(this, available_classes);
+			})
+			.on('input', UpdateAvailClasses);
+
+		$classes_input
+
+		var $cols = $html.find('.avail_classes_col')
+			.on('mouseenter', function(){
+				var $popup = $(this).next('.avail_classes_desc:not(:empty)');
+
+				if( $popup.text().trim() == '' ){
+					// empty / no description provided
+					return;
+				}
+
+				$popup.fadeTo(0, 0.001);
+
+				this.popup = new Popper(this, $popup.get(0), {
+					placement	: 'top', // auto
+					onCreate	: function(){
+						$popup.fadeTo(0, 0.002).delay(750).fadeTo(150, 1);
+					},
+					modifiers : {
+						arrow : {
+							enabled : true
+						},
+						preventOverflow: {
+							escapeWithReference : true
+						}
+				 	}
+				});
+			})
+			.on('mouseleave', function(){
+				this.popup && this.popup.destroy();
+
+				var $popup = $(this).next('.avail_classes_desc:not(:empty)')
+					.stop()
+					.hide();
+			});
+
+
+		var $selects = $html.find('select')
+			.on('change input', function(){
+				var $checkbox = $(this).closest('label').find('.gpcheck');
+				$checkbox.prop('checked', true);
+				$gp.inputs.ClassChecked.apply($checkbox);
+			});
+
 
 		$gp.AdminBoxC( $html );
 
-		//$('#section_attributes_form input').on('input',function(){UpdateAttrs()});
-
-		$(document).trigger("section_options:loaded");
+		var $area = gp_editor.GetArea($li);
+		$area.trigger("section_options:loaded");
 	};
+
+
+	/**
+	 * Parse the value of the class textarea and initialize autocomplete based on the caret position
+	 * @param {object} elem DOM element of the textarea
+	 * @param {array} available_classes
+	 *
+	 */
+	function TextareaSetAutocomplete(elem, available_classes){
+		var value		= elem.value; // console.log('elem.value = ', value);
+		var caret_pos	= elem.selectionEnd;
+		var end_pos		= value.indexOf(' ', caret_pos);
+		if( end_pos === -1 ){
+			end_pos		= value.length;
+		}
+		var current_term = /\S+$/.exec(value.slice(0, end_pos));
+		current_term = current_term ? current_term[0] : false;
+		// console.log('current_term = ', current_term);
+
+		if( !current_term ){
+			if( $(elem).hasClass('ui-autocomplete-input') ){
+				// console.log('autocomplete destroy');
+				$(elem).autocomplete('destroy');
+			}
+			return;
+		}
+		// console.log('$(elem).data("values") = ', $(elem).data('values'));
+		if( $(elem).data('values') &&
+			( $(elem).data('values').caretPos === caret_pos ||
+			$(elem).data('values').current === current_term )
+			){
+			return;
+		}
+
+		var terms = value
+			.split(/(\s+)/)
+			.filter(function(term){
+				return term.trim().length > 0;
+			});
+		// console.log('terms = ', terms);
+
+		var regex = new RegExp('(\\b' + current_term + ')(?![\\w-])', 'gm');
+		// console.log('regex = ', regex);
+		var matches = [];
+		while( (match = regex.exec(value)) != null ){
+			var start	= match.index;
+			var end		= match.index + current_term.length;
+			matches.push({
+				match		: match,
+				term		: current_term,
+				start		: start,
+				end			: end,
+				is_current	: (caret_pos >= start && caret_pos <= end)
+			});
+		}
+		// console.log('current_term = "' + current_term + '", matches = ', matches);
+
+		var values = {
+			leading		: '',
+			current		: '',
+			trailing	: '',
+			index		: -1,
+			caretPos	: caret_pos
+		};
+
+		var matches_index = -1;
+
+		$.each(terms, function(i, term){
+			if( term == current_term ){
+				matches_index++;
+				if( matches[matches_index] && matches[matches_index].is_current ){
+					values.current = term;
+					values.index = i;
+					return;
+				}
+			}
+			if( values.index == -1 ){
+				values.leading += (term + ' ');
+			}else{
+				values.trailing += (' ' + term);
+			}
+		});
+
+		if( $(elem).hasClass('ui-autocomplete-input') &&
+			$(elem).data('values').current != current_term
+			){
+			$(elem).autocomplete('destroy');
+		}
+
+		$(elem)
+			.data('values', values)
+			.autocomplete({
+				minLength : 0,
+				source : function(request, response){
+					// console.log('autocomplete -> source -> $(this.element.context).data() = ', $(this.element.context).data());
+					var values = $(this.element.context).data('values');
+					var filtered_classes = $.ui.autocomplete.filter(available_classes, values.current);
+					filtered_classes.sort(function(a, b){
+						var ai = a.indexOf(values.current);
+						var bi = b.indexOf(values.current);
+						return ai < bi ? -1 : ai > bi ? 1 : 0;
+					});
+					response(filtered_classes);
+				},
+				focus : function(){
+					return false;
+				},
+				select : function(event, ui){
+					// console.log('$(this.data) = ', $(this).data());
+					var $this			= $(this);
+					var leading			= $this.data('values').leading;
+					var selected		= ui.item.value;
+					var trailing		= $this.data('values').trailing;
+					var new_val			= leading + selected + trailing;
+					var new_caret_pos 	= leading.length + selected.length;
+					$this.val(new_val)
+						.trigger('input')
+						.get(0).setSelectionRange(new_caret_pos, new_caret_pos);
+					return false;
+				}
+			})
+			.trigger('keydown');
+	}
+
+
+
+	/**
+	 * Update Available Classes selects/checkboxes
+	 * based on manually set/changed classes
+	 *
+	 */
+	function UpdateAvailClasses(){
+		var $tmp_div = $('<div/>').addClass($(this).val());
+		// var start_time = new Date().getTime();
+
+		$('.avail_classes_container .avail_classes_col').each(function(){
+			var $select = $(this).find('select');
+			if( !$select.length ){
+				var $checkbox = $(this).find('input.gpcheck');
+				var checked = $tmp_div.hasClass($checkbox.next().text());
+				$checkbox.prop('checked', checked);
+			}else{
+				var checked = false;
+				var option_val = '';
+				$select.find('option').each(function(){
+					option_val = $(this).attr('value') || '';
+					if( $tmp_div.hasClass(option_val) ){
+						checked = true;
+						return false;
+					}
+				});
+				if( checked ){
+					$select.val(option_val);
+				}
+				$select.prev('input.gpcheck').prop('checked', checked);
+			}
+			$tmp_div.remove();
+		});
+		// var end_time = new Date().getTime();
+		// console.log('UpdateAvailClasses executed in ' + (end_time - start_time) + 'ms');
+	}
 
 
 	/**
@@ -1170,7 +1395,6 @@
 		var html		= '';
 		var checked		= '';
 
-
 		//multiple classes
 		if( classes.length > 1 ){
 			html += '<select>';
@@ -1181,12 +1405,11 @@
 					selected = 'selected'
 				}
 
-				html += '<option value="'+classes[i]+'" '+selected+'>'+classes[i]+'</option>';
+				html += '<option value="' + classes[i] + '" ' + selected + '>' + classes[i] + '</option>';
 			}
 			html += '</select>';
 
 			html += '<span class="gpcaret"></span>';
-
 
 		//single class
 		}else{
@@ -1195,12 +1418,13 @@
 				checked = 'checked';
 			}
 
-			html += '<span>'+classes[0]+'</span>';
+			html += '<span>' + classes[0] + '</span>';
 		}
 
-
-		html		= '<label class="gpcheckbox"><input class="gpcheck" type="checkbox" data-cmd="ClassChecked" '+checked+'/>'+html;
-		html		+= '</label>';
+		html		=  '<label class="gpcheckbox"><input class="gpcheck" '
+							+ 'type="checkbox" data-cmd="ClassChecked" '
+							+ checked + '/>' + html
+							+ '</label>';
 
 		return html;
 	}
@@ -1217,7 +1441,6 @@
 		var $select		= $checkbox.siblings('select');
 		var classNames	= '';
 
-
 		//span
 		if( $select.length == 0 ){
 			classNames	= $checkbox.siblings('span').text();
@@ -1225,13 +1448,12 @@
 			return;
 		}
 
-
 		//remove all from select first
 		classNames = [];
 		$select.find('option').each(function(){
 			classNames.push(this.value);
 		});
-		classNames = classNames.join(" ");
+		classNames = classNames.join(' ');
 		setSectionClasses( classNames, 'remove');
 
 		//add selected
@@ -1244,19 +1466,36 @@
 
 	function setSectionClasses( classNames, action ){
 
-		var input			= $('#section_attributes_form td input.attr_name[value="class"]').closest('tr').find('input.attr_value');
-		var value			= input.val();
-		var tmp				 = $("<div/>").addClass(value);
+		var input	= $('#section_attributes_form td input.attr_name[value="class"]')
+						.closest('tr').find('.attr_value');
+		var value	= input.val();
+		var tmp		= $("<div/>").addClass(value);
 
 		if( action == 'add' ){
 			tmp.addClass(classNames);
 		}else{
 			tmp.removeClass(classNames);
 		}
-		input.val(tmp.attr('class'));
+		input.val(tmp.attr('class')).trigger('change');
 		tmp.remove();
 	}
 
+
+	/**
+	 * Section Attributes textareas auto height
+	 *
+	 */
+	function textareaAutoHeight(){
+		$(this)
+			.css('height', '1px')
+			.css('height', (this.scrollHeight + 3) + 'px');
+	}
+
+	$(document).on('section_options:loaded', function(){
+		setTimeout(function(){
+			$('.gptextarea.attr_value').trigger('input');
+		}, 100);
+	});
 
 
 	/**
@@ -1264,7 +1503,6 @@
 	 *
 	 */
 	$gp.inputs.UpdateAttrs = function(){
-
 		var $form		= $('#section_attributes_form');
 		var $area		= gp_editor.GetArea( $form );
 		var old_attrs	= $area.data('gp-attrs');
@@ -1273,9 +1511,7 @@
 
 		var $temp_node	= $('<div>');
 		var classes		= '';
-
-
-
+		
 		//prep old_attrs list
 		//remove old attrs from $area
 		$.each(old_attrs,function(attr_name){
@@ -1283,22 +1519,21 @@
 				return;
 			}
 
-			new_attrs[attr_name]	= '';
+			new_attrs[attr_name] = '';
 			$area.attr(attr_name, '');
 		});
 
-
 		//add new values
 		$form.find('tbody tr').each(function(){
-			var $row				= $(this);
-			var attr_name			= $row.find('.attr_name').val();
-			attr_name				= $.trim(attr_name).toLowerCase();
+			var $row		= $(this);
+			var attr_name	= $row.find('.attr_name').val();
+			attr_name		= $.trim(attr_name).toLowerCase();
 
-			if( !attr_name || attr_name == 'id' || attr_name.substr(0,7) == 'data-gp' ){
+			if( !attr_name || attr_name == 'id' || attr_name.substr(0, 7) == 'data-gp' ){
 				return;
 			}
 
-			var attr_value			= $row.find('.attr_value').val();
+			var attr_value	= $row.find('.attr_value').val();
 
 			if( attr_name == 'class' ){
 				class_value = attr_value;
@@ -1309,30 +1544,58 @@
 			$area.attr(attr_name, attr_value);
 		});
 
-
 		//handle class uniquely so that we don't remove classes used by Typesetter
-		var curr_value			= $area.attr('class') || '';
-		$temp_node.attr('class',curr_value);
+		var curr_value = $area.attr('class') || '';
+		$temp_node.attr('class', curr_value);
 		$temp_node.removeClass(old_attrs.class);
 		$temp_node.addClass(class_value);
 		$area.attr('class', $temp_node.attr('class'));
 		new_attrs['class'] = class_value;
 
-
-
 		//update title of <li> in section manager
 		var id		= $gp.AreaId( $area );
-		var $li		= $('#section_sorting li[data-gp-area-id='+id+']');
+		var $li		= $('#section_sorting li[data-gp-area-id=' + id + ']');
 		if( classes == '' ){
 			classes = $li.find('> div .section_label').text();
 		}
-		$li.attr('title',classes);
+		$li.attr('title', classes);
 
-
-		$area.data('gp-attrs',new_attrs);
-
+		$area.data('gp-attrs', new_attrs);
 		$gp.CloseAdminBox();
+		$area.trigger('section_options:closed');
+
+		// trigger immediate save
+		gp_editing.SaveChanges();
 	};
+
+
+	/**
+	 * Highlight trash can icons when Ctrl key is down
+	 * which will bypass the delete section confirmation dialog
+	 */
+	$(document).on('keydown keyup', function(evt){
+		var ctrlKeyDowm = (evt.type == 'keydown' && evt.ctrlKey);
+		$('#section_sorting').toggleClass('warn-instant-section-removal', ctrlKeyDowm);
+	});
+
+
+	/**
+	 * Scroll to content section when list item is clicked
+	 *
+	 */
+	$(document).on('click', '#section_sorting li > div', function(){
+		var $li		= $(this).parent();
+		var $area	= gp_editor.GetArea($li);
+		var top		= $area.offset().top - 200;
+		$('html,body').stop().animate({scrollTop: top});
+	});
+
+
+	/**
+	 * Observe textareas in Section Attribute dialog .attr_value and auto-resize to the required height
+	 *
+	 */
+	$(document).on('input change', '.gptextarea.attr_value', textareaAutoHeight);
 
 
 	/**
@@ -1341,19 +1604,21 @@
 	 */
 	$(document).on('dblclick', '.section_label', function(){
 
-		var $this			= $(this);
-		var $div			= $this.closest('div');
+		var $this		= $(this);
+		var $div		= $this.closest('div');
 		$div.hide();
-		var tmpInput		= $('<input type="text" value="' + $this.text() + '"/>')
+		var tmpInput	= $('<input type="text" value="' + $this.text() + '"/>')
 			.insertAfter($div)
-			.focus()
+			.trigger('focus')
 			.select()
 			// when blurred, remove <input> and show hidden elements
 			// same when esc or enter key is entered
 			.on('keydown blur', function(evt){
 
 				// stop if not enter key or
-				if( evt.type != 'blur' && evt.which !== 13 && evt.which !== 27 ) return;
+				if( evt.type != 'blur' && evt.which !== 13 && evt.which !== 27 ){
+					return;
+				}
 
 				$div.show();
 				var label = tmpInput.val();
@@ -1371,12 +1636,15 @@
 
 				$this.text( label );
 				var $li		= $div.closest('li');
-				gp_editor.GetArea( $li ).attr('data-gp_label',label).data('gp_label',label);
+				gp_editor.GetArea( $li )
+					.attr('data-gp_label', label)
+					.data('gp_label', label);
 
+				// trigger immediate save
+				var callback = function(){};
+				gp_editing.SaveChanges(callback, false); // passing false as 2nd argument will prevent creating a new draft
 			});
-
 	});
-
 
 
 	/**
@@ -1389,9 +1657,8 @@
 
 		//child sections
 		$section.find('.editable_area').each(function(){
-			NewSectionId($(this));
+			NewSectionId( $(this) );
 		});
-
 	}
 
 
@@ -1401,18 +1668,19 @@
 	 */
 	function NewSectionId($section){
 
-		var area_id		= 1;
+		var area_id = 1;
 		var new_id;
 		do{
 			area_id++;
-			new_id = 'ExtraEditArea'+area_id;
+			new_id = 'ExtraEditArea' + area_id;
+		}while( document.getElementById(new_id) || document.getElementById('ExtraEditLink' + area_id) );
 
-		}while( document.getElementById(new_id) || document.getElementById('ExtraEditLink'+area_id) );
-
-		$section.attr('id',new_id).data('gp-area-id',area_id);
+		$section.attr('id', new_id).data('gp-area-id', area_id);
 
 		//add edit link (need to initiate editing and get the save path)
-		$('<a href="?" class="nodisplay" data-cmd="inline_edit_generic" data-gp-area-id="'+area_id+'" id="ExtraEditLink'+area_id+'">').appendTo('#gp_admin_html');
+		$('<a href="?" class="nodisplay" data-cmd="inline_edit_generic" '
+			+ 'data-gp-area-id="' + area_id + '" id="ExtraEditLink' + area_id + '">')
+				.appendTo('#gp_admin_html');
 	}
 
 
@@ -1427,38 +1695,31 @@
 
 		$('a.ExtraEditLink')
 			.clone(false)
-			.attr('class','')
+			.attr('class', '')
 			.show()
 			.each(function(){
 
 				var $b			= $(this);
 				var id_number	= $gp.AreaId( $b );
-				var $area		= $('#ExtraEditArea'+id_number);
+				var $area		= $('#ExtraEditArea' + id_number);
 
 				if( $area.hasClass('gp_no_overlay') || $area.length === 0 ){
 					return true;
 				}
-
 
 				//not page sections
 				if( typeof($area.data('gp-section')) != 'undefined' ){
 					return true;
 				}
 
-
 				var loc			= $gp.Coords($area);
-				var title		= this.title.replace(/_/g,' ');
+				var title		= this.title.replace(/_/g, ' ');
 				title			= decodeURIComponent(title);
-
-				if( title.length > 15 ){
-					title = title.substr(0,14);
-				}
-
 
 				$b
 					//add to list
-					.attr('id','editable_mark'+id_number)
-					.html('<i class="fa fa-pencil"></i> '+title)
+					.attr('id', 'editable_mark' + id_number)
+					.html('<i class="fa fa-pencil"></i> ' + title)
 
 					//add handlers
 					.on('mouseenter touchstart',function(){
@@ -1466,39 +1727,62 @@
 						//the red edit box
 						var loc = $gp.Coords($area);
 						box	.stop(true,true)
-							.css({'top':(loc.top-3),'left':(loc.left-2),'width':(loc.w+4),'height':(loc.h+5)})
+							.css({
+								'top'		: (loc. top - 3),
+								'left'		: (loc.left - 2),
+								'width'		: (loc.w + 4),
+								'height'	: (loc. h + 5)
+							})
 							.fadeIn();
 
 						//scroll to show edit area
 						if( $gp.$win.scrollTop() > loc.top || ( $gp.$win.scrollTop() + $gp.$win.height() ) < loc.top ){
-							$('html,body').stop(true,true).animate({scrollTop: Math.max(0,loc.top-100)},'slow');
+							$('html, body')
+								.stop(true, true)
+								.animate({
+									scrollTop: Math.max(0, loc.top - 100)
+								}, 'slow');
 						}
-					}).on('mouseleave touchend click',function(){
-						box.stop(true,true).fadeOut();
+					}).on('mouseleave touchend click', function(){
+						box.stop(true, true).fadeOut();
 					});
-
 
 				//add to list
 				var $li = $('<li>')
 							.append($b)
-							.data('top',loc.top)
+							.data('top', loc.top)
 							.appendTo(list);
+
+				//dismiss draft link
+				if( $area.data('draft') ){
+					var href = $gp.jPrep(this.href, 'cmd=DismissDraft');
+
+					$('<a class="draft dismiss-draft ck_publish" title="' + gplang.DismissDraft + '" data-cmd="gpajax" data-gp-area-id="' + id_number + '">'
+						 + gplang.Dismiss
+						 + '</a>')
+							.attr('href', href)
+							.appendTo($li);
+				}
 
 				//publish draft link
 				if( $area.data('draft') ){
-					var href = $gp.jPrep(this.href,'cmd=PublishDraft');
-					$('<a class="draft" data-cmd="gpajax" data-gp-area-id="'+id_number+'">'+gplang.Draft+'</a>').attr('href',href).appendTo($li);
+					var href = $gp.jPrep(this.href, 'cmd=PublishDraft');
+
+					$('<a class="draft ck_publish" title="' + gplang.PublishDraft + '" data-cmd="gpajax" data-gp-area-id="' + id_number + '">'
+						 + gplang.Publish
+						 + '</a>')
+							.attr('href', href)
+							.appendTo($li);
 				}
-			});
 
+		});
 
-			// sort by position on page
-			list.find('li').sort(function(a, b){
-				var contentA = $(a).data('top');
-				var contentB = $(b).data('top');
-				return (contentA < contentB) ? -1 : (contentA > contentB) ? 1 : 0;
-			}).appendTo(list);
-
+		// sort by position on page
+		list.find('li').sort(function(a, b){
+			var contentA = $(a).data('top');
+			var contentB = $(b).data('top');
+			return (contentA < contentB) ? -1 : (contentA > contentB) ? 1 : 0;
+		}).appendTo(list);
 	}
 
 
@@ -1510,7 +1794,4 @@
 	gp_editor.InitEditor();
 	loaded();
 
-
 })();
-
-

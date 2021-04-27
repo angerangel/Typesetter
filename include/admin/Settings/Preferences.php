@@ -15,17 +15,14 @@ namespace gp\admin\Settings{
 			parent::__construct($args);
 
 			//only need to return messages if it's ajax request
-			$this->page->ajaxReplace = array();
-
-
-			$this->GetUsers();
-			$this->username = $gpAdmin['username'];
+			$this->page->ajaxReplace = [];
+			$this->username			= $gpAdmin['username'];
 			if( !isset($this->users[$this->username]) ){
 				msg($langmessage['OOPS']);
 				return;
 			}
 
-			$this->user_info		=  $this->users[$this->username];
+			$this->user_info		= $this->users[$this->username];
 			$cmd					= \gp\tool::GetCommand();
 
 
@@ -33,6 +30,9 @@ namespace gp\admin\Settings{
 				case 'changeprefs':
 					$this->DoChange();
 				break;
+				case 'SaveGPUI':
+					$this->SaveGPUI();
+				return;
 			}
 
 			$this->Form();
@@ -96,17 +96,24 @@ namespace gp\admin\Settings{
 				return false;
 			}
 
-
 			//check the old password
+			$passed = false;
 			$pass_hash		= \gp\tool\Session::PassAlgo($this->user_info);
-			$oldpass		= \gp\tool::hash($_POST['oldpassword'],$pass_hash);
 
-			if( $this->user_info['password'] != $oldpass ){
+			if( $pass_hash == 'password_hash' ){
+				$pass_sha512	= \gp\tool::hash($_POST['oldpassword'], 'sha512', 50);
+				$passed			= password_verify($pass_sha512, $this->user_info['password']);
+			}else{
+				$oldpass		= \gp\tool::hash($_POST['oldpassword'], $pass_hash);
+				$passed = $this->user_info['password'] == $oldpass;
+			}
+
+			if( !$passed ){
 				msg($langmessage['couldnt_reset_pass']);
 				return false;
 			}
 
-			self::SetUserPass( $this->users[$this->username], $_POST['password']);
+			$this->SetUserPass( $this->username, $_POST['password']);
 		}
 
 
@@ -178,7 +185,83 @@ namespace gp\admin\Settings{
 
 		}
 
+
+
+		/**
+		 * Save UI values for the current user
+		 *
+		 */
+		public static function SaveGPUI(){
+			global $gpAdmin;
+
+			$possible = array();
+
+			$possible['gpui_cmpct']			= 'integer';
+			$possible['gpui_vis']	= [
+				'con'			=> 'con',
+				'cur'			=> 'cur',
+				'app'			=> 'app',
+				'add'			=> 'add',
+				'set'			=> 'set',
+				'use'			=> 'use',
+				'cms'			=> 'cms',
+				'res'			=> 'res',
+				'tool'			=> 'tool',
+				'notifications'	=> 'notifications', // since 5.2
+				'false'			=> false,
+			];
+			$possible['gpui_tx']			= 'integer';
+			$possible['gpui_ty']			= 'integer';
+			$possible['gpui_ckx']			= 'integer';
+			$possible['gpui_cky']			= 'integer';
+			$possible['gpui_exp']			= 'integer';	// editor expanded, since 5.2
+			$possible['gpui_thw']			= 'integer';
+
+			foreach($possible as $key => $key_possible){
+
+				if( !isset($_POST[$key]) ){
+					continue;
+				}
+				$value = $_POST[$key];
+
+				if( $key_possible == 'boolean' ){
+					if( !$value || $value === 'false' ){
+						$value = false;
+					}else{
+						$value = true;
+					}
+				}elseif( $key_possible == 'integer' ){
+					$value = (int)$value;
+				}elseif( is_array($key_possible) ){
+					if( !isset($key_possible[$value]) ){
+						continue;
+					}
+				}
+
+				$gpAdmin[$key] = $value;
+			}
+
+			//remove gpui_ settings no longer in $possible
+			unset(
+				$gpAdmin['gpui_pdock'],
+				$gpAdmin['gpui_con'],
+				$gpAdmin['gpui_cur'],
+				$gpAdmin['gpui_app'],
+				$gpAdmin['gpui_add'],
+				$gpAdmin['gpui_set'],
+				$gpAdmin['gpui_upd'],
+				$gpAdmin['gpui_use'],
+				$gpAdmin['gpui_edb'],
+				$gpAdmin['gpui_brdis'],	// 3.5
+				$gpAdmin['gpui_ctx']	// 5.0
+			);
+
+			//send response so an error is not thrown
+			echo \gp\tool\Output\Ajax::Callback().'([]);';
+			die();
+		}
 	}
+
 }
 
 namespace{

@@ -123,7 +123,7 @@ class FileSystemFtp extends FileSystem{
 		/*
 		 * Remove from $config if it's not a safe mode installation
 		 */
-		if( !isset($config['useftp']) && isset($config['ftp_user']) ){
+		if( isset($config['ftp_user']) ){
 			unset($config['ftp_user']);
 			unset($config['ftp_server']);
 			unset($config['ftp_pass']);
@@ -259,7 +259,7 @@ class FileSystemFtp extends FileSystem{
 	 * @param string $dir
 	 * @param bool $show_hidden
 	 */
-	public function dirlist( $dir, $show_hidden=true ){
+	public function dirlist( $dir ){
 		$pwd = @ftp_pwd($this->conn_id);
 
 		// Cant change to folder = folder doesnt exist
@@ -279,9 +279,6 @@ class FileSystemFtp extends FileSystem{
 		$list = array();
 		foreach($ftp_list as $file){
 			if( $file == '.' || $file == '..' ){
-				continue;
-			}
-			if( !$show_hidden && $file{0} == '.' ){
 				continue;
 			}
 			$list[$file] = $file;
@@ -436,7 +433,7 @@ class FileSystemFtp extends FileSystem{
 		}
 		$possible = array();
 		foreach($array as $file){
-			if( $file{0} == '.' ){
+			if( $file[0] == '.' ){
 				continue;
 			}
 

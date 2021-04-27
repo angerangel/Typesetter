@@ -56,7 +56,7 @@ class Uninstall{
 		$this->DirPermission = 0777; //0755;
 		$this->FilePermission = 0666; //0644; //0600 is too restrictive
 		$this->chmoddir($chmodDir);
-		message('The file permissions have been updated.');
+		msg('The file permissions have been updated.');
 	}
 
 	private function uninstall(){
@@ -67,7 +67,7 @@ class Uninstall{
 		$this->FilePermission = 0777; //0666;
 		$this->chmoddir($chmodDir);
 
-		message('The file permissions have been updated.');
+		msg('The file permissions have been updated.');
 	}
 
 	private function chmoddir($dir){
@@ -91,12 +91,9 @@ class Uninstall{
 
 
 			if( is_dir($fullPath) ){
-				if( !isset($config['useftp']) ){
 
-					//dirs will already be 0777 when using ftp
-					if( !@chmod($fullPath,$this->DirPermission) ){
-						continue;
-					}
+				if( !@chmod($fullPath,$this->DirPermission) ){
+					continue;
 				}
 
 				$this->chmoddir($fullPath);
