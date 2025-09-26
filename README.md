@@ -1,3 +1,5 @@
+# THIS PAGE IS NO MORE MANTAINED, PLEASE GO TO https://github.com/gtbu/Typesetter-5.3-p8
+
 
 <p align="center"><img src="/include/imgs/typesetter/ts-logo-color-100x100px-min.png?raw=true"/></p>
 <h1 align="center">Typesetter CMS </h1>
